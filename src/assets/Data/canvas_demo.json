@@ -1,0 +1,206 @@
+{
+  "canvasId": "canvas_export",
+  "canvasName": "Unnamed Canvas",
+  "params": null,
+  "objects": [
+    {
+      "id": "obj_1762147284763",
+      "typeName": "Bed",
+      "name": "Bed",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": 120,
+              "y": 10
+            },
+            {
+              "x": 230,
+              "y": 10
+            },
+            {
+              "x": 120,
+              "y": 210
+            },
+            {
+              "x": 230,
+              "y": 210
+            }
+          ],
+          "center": {
+            "x": 171,
+            "y": 109
+          }
+        }
+      },
+      "visual": {
+        "color": "#a8c5a8",
+        "transparent": false,
+        "reflectivity": 30
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "radar_1762147300285",
+      "typeName": "Radar",
+      "name": "Radar01",
+      "geometry": {
+        "type": "point",
+        "data": {
+          "x": 90,
+          "y": 150,
+          "z": 300
+        }
+      },
+      "visual": {
+        "color": "#2196F3",
+        "transparent": false
+      },
+      "device": {
+        "category": "iot",
+        "type": "Radar",
+        "isInteractive": true,
+        "isObstacle": false,
+        "iot": {
+          "deviceId": "Radar01",
+          "isOnline": true,
+          "communication": "wifi",
+          "radar": {
+            "installModel": "ceiling",
+            "workModel": "vital",
+            "hfov": 140,
+            "vfov": 120,
+            "boundary": {
+              "leftH": 300,
+              "rightH": 150,
+              "frontV": 200,
+              "rearV": 150
+            },
+            "signalRadius": 400,
+            "signalAngle": 360,
+            "showBoundary": true,
+            "showSignal": false,
+            "areas": [
+              {
+                "areaId": 1,
+                "areaType": 2,
+                "objectId": "obj_1762147284763",
+                "objectType": "Bed",
+                "vertices": [
+                  {
+                    "h": -140,
+                    "v": -140,
+                    "z": 0
+                  },
+                  {
+                    "h": -30,
+                    "v": -140,
+                    "z": 0
+                  },
+                  {
+                    "h": -140,
+                    "v": 60,
+                    "z": 0
+                  },
+                  {
+                    "h": -30,
+                    "v": 60,
+                    "z": 0
+                  }
+                ]
+              },
+              {
+                "areaId": 3,
+                "areaType": 4,
+                "objectId": "obj_1762147319841",
+                "objectType": "Enter",
+                "vertices": [
+                  {
+                    "h": 50,
+                    "v": 160,
+                    "z": 0
+                  },
+                  {
+                    "h": 290,
+                    "v": 160,
+                    "z": 0
+                  },
+                  {
+                    "h": 50,
+                    "v": 200,
+                    "z": 0
+                  },
+                  {
+                    "h": 290,
+                    "v": 200,
+                    "z": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "statusMessage": "Radar Areas: 2 objects\nBed(0, 2, -140,-140, -30,-140, -140,60, -30,60)\nEnter(2, 4, 0,160, 240,160, 0,200, 240,200)"
+        }
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "obj_1762147319841",
+      "typeName": "Enter",
+      "name": "Enter",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": -200,
+              "y": 310
+            },
+            {
+              "x": 40,
+              "y": 310
+            },
+            {
+              "x": -200,
+              "y": 350
+            },
+            {
+              "x": 40,
+              "y": 350
+            }
+          ],
+          "center": {
+            "x": -84,
+            "y": 327
+          }
+        }
+      },
+      "visual": {
+        "color": "#a0eda0",
+        "transparent": false,
+        "reflectivity": 30
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    }
+  ],
+  "timestamp": "2025-11-03T06:11:31.455Z"
+}
