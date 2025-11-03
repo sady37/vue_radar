@@ -234,7 +234,12 @@ export const useRadarDataStore = defineStore('radarData', {
         }
         
         const trajectory = this.trajectories[key];
-        trajectory.push(person.position);
+        
+        // 添加轨迹点（包含时间戳）
+        trajectory.push({
+          ...person.position,
+          timestamp: Date.now()  // 添加时间戳用于5秒过期
+        });
         
         // 限制轨迹长度
         if (trajectory.length > this.maxTrajectoryLength) {

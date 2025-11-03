@@ -49,16 +49,16 @@
       </div>
       <div class="tool-row-line-color">
         <div class="color-group">
-          <button class="color-btn red" :class="{ active: activeColor === colorMap.red, disabled: !activeFurniture }" @click="selectColor('red')" :disabled="!activeFurniture"></button>
-          <button class="color-btn orange" :class="{ active: activeColor === colorMap.orange, disabled: !activeFurniture }" @click="selectColor('orange')" :disabled="!activeFurniture"></button>
-          <button class="color-btn yellow" :class="{ active: activeColor === colorMap.yellow, disabled: !activeFurniture }" @click="selectColor('yellow')" :disabled="!activeFurniture"></button>
-          <button class="color-btn green" :class="{ active: activeColor === colorMap.green, disabled: !activeFurniture }" @click="selectColor('green')" :disabled="!activeFurniture"></button>
-          <button class="color-btn blue" :class="{ active: activeColor === colorMap.blue, disabled: !activeFurniture }" @click="selectColor('blue')" :disabled="!activeFurniture"></button>
-          <button class="color-btn brown" :class="{ active: activeColor === colorMap.brown, disabled: !activeFurniture }" @click="selectColor('brown')" :disabled="!activeFurniture"></button>
-          <button class="color-btn gray" :class="{ active: activeColor === colorMap.gray, disabled: !activeFurniture }" @click="selectColor('gray')" :disabled="!activeFurniture"></button>
-          <button class="color-btn black" :class="{ active: activeColor === colorMap.black, disabled: !activeFurniture }" @click="selectColor('black')" :disabled="!activeFurniture"></button>
-          <button class="color-btn silver" :class="{ active: activeColor === colorMap.silver, disabled: !activeFurniture }" @click="selectColor('silver')" :disabled="!activeFurniture"></button>
-          <button class="color-btn white" :class="{ active: activeColor === colorMap.white, disabled: !activeFurniture }" @click="selectColor('white')" :disabled="!activeFurniture"></button>
+          <button class="color-btn bed" :class="{ active: activeColor === colorMap.bed, disabled: !activeFurniture }" @click="selectColor('bed')" :disabled="!activeFurniture" title="Bed色"></button>
+          <button class="color-btn monitorBed" :class="{ active: activeColor === colorMap.monitorBed, disabled: !activeFurniture }" @click="selectColor('monitorBed')" :disabled="!activeFurniture" title="MonitorBed色"></button>
+          <button class="color-btn blue" :class="{ active: activeColor === colorMap.blue, disabled: !activeFurniture }" @click="selectColor('blue')" :disabled="!activeFurniture" title="蓝色(Curtain)"></button>
+          <button class="color-btn gray" :class="{ active: activeColor === colorMap.gray, disabled: !activeFurniture }" @click="selectColor('gray')" :disabled="!activeFurniture" title="灰色(Furniture)"></button>
+          <button class="color-btn brown" :class="{ active: activeColor === colorMap.brown, disabled: !activeFurniture }" @click="selectColor('brown')" :disabled="!activeFurniture" title="棕色(Table)"></button>
+          <button class="color-btn chair" :class="{ active: activeColor === colorMap.chair, disabled: !activeFurniture }" @click="selectColor('chair')" :disabled="!activeFurniture" title="赭色(Chair)"></button>
+          <button class="color-btn silver" :class="{ active: activeColor === colorMap.silver, disabled: !activeFurniture }" @click="selectColor('silver')" :disabled="!activeFurniture" title="灰绿色"></button>
+          <button class="color-btn black" :class="{ active: activeColor === colorMap.black, disabled: !activeFurniture }" @click="selectColor('black')" :disabled="!activeFurniture" title="黑色(Wall)"></button>
+          <button class="color-btn yellow" :class="{ active: activeColor === colorMap.yellow, disabled: !activeFurniture }" @click="selectColor('yellow')" :disabled="!activeFurniture" title="黄色"></button>
+          <button class="color-btn interfere" :class="{ active: activeColor === colorMap.interfere, disabled: !activeFurniture }" @click="selectColor('interfere')" :disabled="!activeFurniture" title="浅白色(Interfere)"></button>
         </div>
       </div>
     </div>
@@ -153,10 +153,10 @@
         </div>
       </div>
       
-      <!-- 第2行：线/矩形 Len/Depth/Height 或 圆/sector radians/Radius/Height -->
+      <!-- 第2行：线/矩形 Wid/Depth/Height 或 圆/sector radians/Radius/Height -->
       <div class="prop-row prop-row-lwh" v-if="selectedObject.geometry.type === 'line' || selectedObject.geometry.type === 'rectangle'">
         <div class="prop-group">
-          <span>Len:</span>
+          <span>Wid:</span>
           <input 
             type="number" 
             class="prop-num-xs" 
@@ -462,6 +462,11 @@
             <span class="coord-value">{{ objCoordinates.y }}</span>
           </div>
         </div>
+        <button 
+          class="shift-btn" 
+          @click="shiftAllObjectsLeft"
+          title="将所有对象向左移动10px"
+        >←10px</button>
       </div>
 
       <div class="direction-rotation-row">
@@ -593,16 +598,16 @@ const getDrawingParams = () => ({
 
 // 颜色映射
 const colorMap = {
-  red: '#ff4d4f',
+  bed: '#d7d7a0',       // RGB: (215, 215, 160) 浅黄绿色，反差大易识别
+  monitorBed: '#F0E68C', // RGB: (240, 230, 140)
+  interfere: '#F5F5F5',  // 浅白色（表示金属反光）
   yellow: '#fadb14',
-  green: '#52c41a',
-  blue: '#6bb9d3',      // 浅蓝色
+  blue: '#82BBEB',      // RGB: (130, 187, 235) 与Curtain一致
   black: '#000000',
   gray: '#d3d3d3',      // 浅灰色 (Light Gray)
-  orange: '#ff8c00',
   brown: '#c19a6b',     // 浅棕色 (Light Brown)
   silver: '#a8c5a8',    // 灰绿色 (更灰的绿色)
-  white: '#ffffff'
+  chair: '#a0522d'      // 赭色
 };
 
 // 选中的对象
@@ -1228,6 +1233,119 @@ const objCoordinates = computed(() => {
   
   return { x: 0, y: 0 };
 });
+
+// 整体向左移动所有对象
+const shiftAllObjectsLeft = () => {
+  const allObjects = objectsStore.objects;
+  if (allObjects.length === 0) {
+    console.log('⚠️ 画布上没有对象');
+    return;
+  }
+  
+  let movedCount = 0;
+  allObjects.forEach(obj => {
+    // 跳过锁定的对象
+    if (obj.interactive?.locked) {
+      return;
+    }
+    
+    const geo = obj.geometry;
+    
+    switch (geo.type) {
+      case 'point':
+        objectsStore.updateObject(obj.id, {
+          geometry: {
+            ...geo,
+            data: {
+              ...geo.data,
+              x: (geo.data.x || 0) - 10
+            }
+          }
+        });
+        movedCount++;
+        break;
+        
+      case 'rectangle':
+        if (geo.data.vertices && geo.data.vertices.length >= 4) {
+          const newVertices = geo.data.vertices.map((v: any) => ({
+            x: v.x - 10,
+            y: v.y,
+            z: v.z
+          })) as [any, any, any, any];
+          objectsStore.updateObject(obj.id, {
+            geometry: {
+              ...geo,
+              data: { vertices: newVertices }
+            }
+          });
+          movedCount++;
+        }
+        break;
+        
+      case 'circle':
+        objectsStore.updateObject(obj.id, {
+          geometry: {
+            ...geo,
+            data: {
+              ...geo.data,
+              center: {
+                x: geo.data.center.x - 10,
+                y: geo.data.center.y
+              }
+            }
+          }
+        });
+        movedCount++;
+        break;
+        
+      case 'sector':
+        objectsStore.updateObject(obj.id, {
+          geometry: {
+            ...geo,
+            data: {
+              center: {
+                x: geo.data.center.x - 10,
+                y: geo.data.center.y
+              },
+              leftPoint: {
+                x: geo.data.leftPoint.x - 10,
+                y: geo.data.leftPoint.y
+              },
+              rightPoint: {
+                x: geo.data.rightPoint.x - 10,
+                y: geo.data.rightPoint.y
+              },
+              radius: geo.data.radius
+            }
+          }
+        });
+        movedCount++;
+        break;
+        
+      case 'line':
+        objectsStore.updateObject(obj.id, {
+          geometry: {
+            ...geo,
+            data: {
+              start: {
+                x: geo.data.start.x - 10,
+                y: geo.data.start.y
+              },
+              end: {
+                x: geo.data.end.x - 10,
+                y: geo.data.end.y
+              },
+              thickness: geo.data.thickness
+            }
+          }
+        });
+        movedCount++;
+        break;
+    }
+  });
+  
+  console.log(`📦 整体向左移动10px，已移动 ${movedCount}/${allObjects.length} 个对象`);
+};
 
 // 移动对象
 const moveObject = (dx: number, dy: number) => {
@@ -2358,12 +2476,12 @@ const toggleSettings = () => {
         }
       }
 
-      &.bed { background: #a8c5a8; }       // 灰绿色
-      &.enter { background: #a0eda0; }     // 亮绿色
-      &.interfere { background: #fadb14; } // 黄色
+      &.bed { background: #d7d7a0; }       // RGB: (215, 215, 160) 反差大易识别
+      &.enter { background: #A9EAA9; }     // RGB: (169, 234, 169)
+      &.interfere { background: #F5F5F5; border: 1px solid #ccc; } // 浅白色（金属反光）
       &.wall { background: #e8e8e8; }      // 墙体
       &.furniture { background: #d3d3d3; } // 浅灰色
-      &.curtain { background: #6bb9d3; }   // 浅蓝色
+      &.curtain { background: #82BBEB; }   // RGB: (130, 187, 235)
       &.sleepad { background: #dda0dd; }   // 紫色
       &.sensor { background: #ffa07a; }    // 橙色
       
@@ -2426,16 +2544,16 @@ const toggleSettings = () => {
         pointer-events: none;
       }
 
-      &.red { background: #ff4d4f; }
+      &.bed { background: #d7d7a0; }      // RGB: (215, 215, 160) 反差大易识别
+      &.monitorBed { background: #F0E68C; } // RGB: (240, 230, 140)
+      &.interfere { background: #F5F5F5; border: 1px solid #ccc; }  // 浅白色（金属反光）
       &.yellow { background: #fadb14; }
-      &.green { background: #52c41a; }
-      &.blue { background: #6bb9d3; }     // 浅蓝色
+      &.blue { background: #82BBEB; }     // RGB: (130, 187, 235) 与Curtain一致
       &.black { background: #000000; }
       &.gray { background: #d3d3d3; }     // 浅灰色 (Light Gray)
-      &.orange { background: #ff8c00; }
       &.brown { background: #c19a6b; }    // 浅棕色 (Light Brown)
       &.silver { background: #a8c5a8; }   // 灰绿色 (更灰的绿色)
-      &.white { background: #ffffff; }
+      &.chair { background: #a0522d; }    // 赭色
 
       &:hover {
         transform: scale(1.1);
@@ -2894,6 +3012,27 @@ const toggleSettings = () => {
             font-family: 'Courier New', monospace;
             font-weight: 600;
           }
+        }
+      }
+      
+      .shift-btn {
+        padding: 2px 6px;
+        border: 1px solid #ccc;
+        background: #fff;
+        cursor: pointer;
+        font-size: 11px;
+        border-radius: 2px;
+        height: 22px;
+        white-space: nowrap;
+        transition: all 0.2s;
+        
+        &:hover {
+          background: #f0f0f0;
+          border-color: #1890ff;
+        }
+        
+        &:active {
+          background: #e0e0e0;
         }
       }
     }

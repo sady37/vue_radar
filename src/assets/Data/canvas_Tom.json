@@ -1,0 +1,324 @@
+{
+  "canvasId": "canvas_export",
+  "canvasName": "Unnamed Canvas",
+  "params": null,
+  "objects": [
+    {
+      "id": "obj_1762163948581",
+      "typeName": "MonitorBed",
+      "name": "Bed",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": 120,
+              "y": 0
+            },
+            {
+              "x": 210,
+              "y": 0
+            },
+            {
+              "x": 120,
+              "y": 220
+            },
+            {
+              "x": 210,
+              "y": 220
+            }
+          ],
+          "center": {
+            "x": 165,
+            "y": 109
+          }
+        }
+      },
+      "visual": {
+        "color": "#F0E68C",
+        "transparent": false,
+        "reflectivity": 30
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "radar_1762163997373",
+      "typeName": "Radar",
+      "name": "Radar01",
+      "geometry": {
+        "type": "point",
+        "data": {
+          "x": 150,
+          "y": 170,
+          "z": 300
+        }
+      },
+      "visual": {
+        "color": "#2196F3",
+        "transparent": false
+      },
+      "device": {
+        "category": "iot",
+        "type": "Radar",
+        "isInteractive": true,
+        "isObstacle": false,
+        "iot": {
+          "deviceId": "Radar01",
+          "isOnline": true,
+          "communication": "wifi",
+          "radar": {
+            "installModel": "ceiling",
+            "workModel": "vital",
+            "hfov": 140,
+            "vfov": 120,
+            "boundary": {
+              "leftH": 300,
+              "rightH": 150,
+              "frontV": 200,
+              "rearV": 200
+            },
+            "signalRadius": 400,
+            "signalAngle": 360,
+            "showBoundary": true,
+            "showSignal": false,
+            "areas": [
+              {
+                "areaId": 1,
+                "areaType": 5,
+                "objectId": "obj_1762163948581",
+                "objectType": "MonitorBed",
+                "vertices": [
+                  {
+                    "h": -60,
+                    "v": -170,
+                    "z": 0
+                  },
+                  {
+                    "h": 30,
+                    "v": -170,
+                    "z": 0
+                  },
+                  {
+                    "h": -60,
+                    "v": 50,
+                    "z": 0
+                  },
+                  {
+                    "h": 30,
+                    "v": 50,
+                    "z": 0
+                  }
+                ]
+              },
+              {
+                "areaId": 2,
+                "areaType": 4,
+                "objectId": "obj_1762164112092",
+                "objectType": "Enter",
+                "vertices": [
+                  {
+                    "h": 100,
+                    "v": 150,
+                    "z": 0
+                  },
+                  {
+                    "h": 300,
+                    "v": 150,
+                    "z": 0
+                  },
+                  {
+                    "h": 100,
+                    "v": 200,
+                    "z": 0
+                  },
+                  {
+                    "h": 300,
+                    "v": 200,
+                    "z": 0
+                  }
+                ]
+              },
+              {
+                "areaId": 4,
+                "areaType": 1,
+                "objectId": "obj_1762164237596",
+                "objectType": "Furniture",
+                "vertices": [
+                  {
+                    "h": 100,
+                    "v": -170,
+                    "z": 0
+                  },
+                  {
+                    "h": 160,
+                    "v": -170,
+                    "z": 0
+                  },
+                  {
+                    "h": 100,
+                    "v": -120,
+                    "z": 0
+                  },
+                  {
+                    "h": 160,
+                    "v": -120,
+                    "z": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "statusMessage": "Radar Areas: 1 objects\nBed(0, 5, -90,-200, 0,-200, -90,20, 0,20)"
+        }
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "obj_1762164112092",
+      "typeName": "Enter",
+      "name": "Enter",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": -150,
+              "y": 320
+            },
+            {
+              "x": 50,
+              "y": 320
+            },
+            {
+              "x": -150,
+              "y": 370
+            },
+            {
+              "x": 50,
+              "y": 370
+            }
+          ],
+          "center": {
+            "x": -49.5,
+            "y": 347
+          }
+        }
+      },
+      "visual": {
+        "color": "#A9EAA9",
+        "transparent": false,
+        "reflectivity": 30
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "obj_1762164160332",
+      "typeName": "Interfere",
+      "name": "Interfere",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": -200,
+              "y": 170
+            },
+            {
+              "x": -150,
+              "y": 170
+            },
+            {
+              "x": -200,
+              "y": 220
+            },
+            {
+              "x": -150,
+              "y": 220
+            }
+          ],
+          "center": {
+            "x": -179,
+            "y": 197
+          }
+        }
+      },
+      "visual": {
+        "color": "#F5F5F5",
+        "transparent": false,
+        "reflectivity": 90
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    },
+    {
+      "id": "obj_1762164237596",
+      "typeName": "Furniture",
+      "name": "Furniture",
+      "geometry": {
+        "type": "rectangle",
+        "data": {
+          "vertices": [
+            {
+              "x": -10,
+              "y": 0
+            },
+            {
+              "x": 50,
+              "y": 0
+            },
+            {
+              "x": -10,
+              "y": 50
+            },
+            {
+              "x": 50,
+              "y": 50
+            }
+          ],
+          "center": {
+            "x": 22,
+            "y": 29
+          }
+        }
+      },
+      "visual": {
+        "color": "#d3d3d3",
+        "transparent": false,
+        "reflectivity": 30
+      },
+      "device": {
+        "category": "furniture"
+      },
+      "interactive": {
+        "selected": false,
+        "locked": false
+      },
+      "angle": 0
+    }
+  ],
+  "timestamp": "2025-11-03T10:05:09.977Z"
+}

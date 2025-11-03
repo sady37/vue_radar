@@ -289,7 +289,7 @@ function drawShapeObject(obj: BaseObject, context: DrawContext): void {
       const rectVertices = obj.geometry.data.vertices.map(toCanvasCoord);
       drawRectangle(ctx, rectVertices as [Point, Point, Point, Point], {
         fillColor: visual.color,
-        strokeColor: visual.color,
+        strokeColor: '#999999',  // 家具默认灰色边框
         lineWidth: 2,
         strokeOnly: visual.transparent  // 透明模式仅描边
       });
@@ -302,7 +302,7 @@ function drawShapeObject(obj: BaseObject, context: DrawContext): void {
         obj.geometry.data.radius * scale, 
         {
           fillColor: visual.color,
-          strokeColor: visual.color,
+          strokeColor: '#999999',  // 家具默认灰色边框
           lineWidth: 2,
           strokeOnly: visual.transparent
         }

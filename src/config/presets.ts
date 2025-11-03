@@ -31,28 +31,28 @@ export const FURNITURE_PRESETS: Record<FurnitureType, FurniturePreset> = {
   Bed: {
     typeName: 'Bed',
     typeValue: 2,
-    color: '#a8c5a8',  // 灰绿色
+    color: '#d7d7a0',  // RGB: (215, 215, 160) 浅黄绿色，反差大易识别
     description: 'Normal Bed'
   },
   
   MonitorBed: {
     typeName: 'MonitorBed',
     typeValue: 5,
-    color: '#FFC080',  // 奶油橙色
+    color: '#F0E68C',  // RGB: (240, 230, 140)
     description: 'Monitor Bed'
   },
   
   Interfere: {
     typeName: 'Interfere',
     typeValue: 3,
-    color: '#fadb14',  // 黄色 - 雷达干扰区
+    color: '#F5F5F5',  // 浅白色（表示金属反光）
     description: 'Interfere Area'
   },
   
   Enter: {
     typeName: 'Enter',
     typeValue: 4,
-    color: '#a0eda0',  // 亮绿色
+    color: '#A9EAA9',  // RGB: (169, 234, 169)
     description: 'Entrance'
   },
   
@@ -101,21 +101,21 @@ export const FURNITURE_PRESETS: Record<FurnitureType, FurniturePreset> = {
   Curtain: {
     typeName: 'Curtain',
     typeValue: 1,
-    color: '#6bb9d3',  // 浅蓝色
+    color: '#82BBEB',  // RGB: (130, 187, 235)
     description: 'Curtain'
   },
   
   MetalCan: {
     typeName: 'MetalCan',
     typeValue: 3,
-    color: '#fadb14',  // 黄色
+    color: '#F5F5F5',  // 浅白色（表示金属反光）
     description: 'Metal Can'
   },
   
   WheelChair: {
     typeName: 'WheelChair',
     typeValue: 3,
-    color: '#fadb14',  // 黄色
+    color: '#a0826d',  // 灰棕色
     description: 'Wheel Chair'
   }
 };

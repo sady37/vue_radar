@@ -201,7 +201,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'Bed': {
     typeName: 'Bed',
     areaType: 2,
-    color: '#a8c5a8',      // 灰绿色
+    color: '#d7d7a0',      // RGB: (215, 215, 160) 浅黄绿色，反差大易识别
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.WOOD,
     description: 'Normal Bed'
@@ -209,7 +209,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'MonitorBed': {
     typeName: 'MonitorBed',
     areaType: 5,
-    color: '#FFC080',      // 奶油橙色
+    color: '#F0E68C',      // RGB: (240, 230, 140)
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.WOOD,
     description: 'Monitor Bed'
@@ -217,7 +217,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'Interfere': {
     typeName: 'Interfere',
     areaType: 3,
-    color: '#fadb14',      // 黄色 - 雷达干扰区
+    color: '#F5F5F5',      // 浅白色（表示金属反光）
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.METAL,
     description: 'Interfere Area'
@@ -225,7 +225,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'Enter': {
     typeName: 'Enter',
     areaType: 4,
-    color: '#a0eda0',      // 亮绿色
+    color: '#A9EAA9',      // RGB: (169, 234, 169)
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.WOOD,
     description: 'Entrance'
@@ -289,7 +289,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'Curtain': {
     typeName: 'Curtain',
     areaType: 1,
-    color: '#6bb9d3',      // 浅蓝色
+    color: '#82BBEB',      // RGB: (130, 187, 235)
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.GLASS,
     description: 'Curtain'
@@ -297,7 +297,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'MetalCan': {
     typeName: 'MetalCan',
     areaType: 3,
-    color: '#fadb14',      // 黄色
+    color: '#F5F5F5',      // 浅白色（表示金属反光）
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.METAL,
     description: 'Metal Can'
@@ -305,7 +305,7 @@ export const FURNITURE_CONFIGS: Record<FurnitureType, FurnitureConfig> = {
   'WheelChair': {
     typeName: 'WheelChair',
     areaType: 3,
-    color: '#fadb14',      // 黄色
+    color: '#a0826d',      // 灰棕色
     drawTool: 'rectangle',
     reflectivity: MATERIAL_REFLECTIVITY.METAL,
     description: 'Wheel Chair'

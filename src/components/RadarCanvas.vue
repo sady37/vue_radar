@@ -1436,8 +1436,7 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     }
     
     // ===== 坐标转换：雷达坐标系 -> 画布坐标系 =====
-    // 1. 使用第一个雷达作为展示雷达（或使用默认雷达）
-    // 注意：person.deviceCode 是数据来源，不一定是Canvas中的雷达
+    // 1. 使用第一个雷达作为展示雷达
     const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
     
     if (!radar) {
@@ -1447,28 +1446,19 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     
     // 2. 构建雷达坐标点（已经是 cm，由数据入口处转换）
     const radarPoint: RadarPoint = {
-      h: currentPos.x,  // cm (水平)
-      v: currentPos.y   // cm (垂直)
+      h: currentPos.x,  // cm (水平) - 直接使用，相对于雷达中心
+      v: currentPos.y   // cm (垂直) - 直接使用，相对于雷达中心
     };
-    
-    // 调试：输出雷达信息（仅首次）
-    if (person.id % 1000000 === 0) {
-      const radarPos = radar.geometry.type === 'point' ? radar.geometry.data : { x: 0, y: 0 };
-      console.log(`📡 Radar info:`, {
-        name: radar.name,
-        position: radarPos,
-        angle: radar.angle || 0
-      });
-    }
     
     // 3. 使用 toCanvasCoordinate 转换为画布坐标（考虑雷达位置和旋转）
     const canvasPoint = toCanvasCoordinate(radarPoint, radar);
     
-    // 4. 转换为屏幕坐标（应用缩放）
-    const screenX = canvasPoint.x * scale.value;
-    const screenY = canvasPoint.y * scale.value;
-    
-    console.log(`🧍 Person ${person.id}: radarCoord(${currentPos.x.toFixed(1)}cm, ${currentPos.y.toFixed(1)}cm) -> canvas(${canvasPoint.x.toFixed(1)}, ${canvasPoint.y.toFixed(1)}) -> screen(${screenX.toFixed(0)}px, ${screenY.toFixed(0)}px), posture=${person.posture}, moving=${moving}`);
+    // 4. 转换为屏幕坐标（应用 offset 和 scale）
+    // offset: { x: canvasStore.width / 2, y: 0 }（画布原点在顶部中央）
+    const offsetX = canvasStore.width / 2;
+    const offsetY = 0;
+    const screenX = offsetX + canvasPoint.x * scale.value;
+    const screenY = offsetY + canvasPoint.y * scale.value;
     
     // ===== 确定显示的姿态（移动时自动切换为Walking） =====
     const displayPosture = moving ? 1 : person.posture;  // 1 = Walking
@@ -1521,9 +1511,9 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     // 绘制人员标签
     drawPersonLabel(ctx, person, screenX, screenY);
     
-    // 绘制轨迹
+    // 绘制轨迹（始终显示，但移动时排除最后一个点）
     if (person.deviceCode && person.personIndex !== undefined) {
-      drawPersonTrajectory(ctx, person.deviceCode, person.personIndex);
+      drawPersonTrajectory(ctx, person.deviceCode, person.personIndex, moving);
     }
   });
   
@@ -1553,15 +1543,42 @@ const drawPersonLabel = (
   ctx.restore();
 };
 
-// 绘制人员轨迹（坐标转换：雷达坐标系 -> 画布坐标系）
+// 绘制人员轨迹（只显示最近5秒的轨迹点，用圆点表示，颜色从白到该人员颜色渐变）
 const drawPersonTrajectory = (
   ctx: CanvasRenderingContext2D,
   deviceCode: string,
-  personIndex: number
+  personIndex: number,
+  isMoving: boolean = false
 ) => {
-  const trajectory = radarDataStore.getPersonTrajectory(deviceCode, personIndex);
+  // 超过4个人不展示轨迹
+  if (personIndex >= 4) return;
   
-  if (trajectory.length < 2) return;
+  const fullTrajectory = radarDataStore.getPersonTrajectory(deviceCode, personIndex);
+  
+  if (fullTrajectory.length < 2) return;  // 至少需要2个点才有轨迹
+  
+  // 如果人员正在移动，排除最后一个点（避免新点提前出现）
+  // 如果人员静止，包含最后一个点（显示完整轨迹）
+  let trajectory;
+  if (isMoving) {
+    // 移动中：排除最后1个点，显示历史轨迹
+    trajectory = fullTrajectory.slice(-6, -1);  // 最多5个历史点
+  } else {
+    // 静止时：显示最后5个点（包括当前位置）
+    trajectory = fullTrajectory.slice(-5);
+  }
+  
+  if (trajectory.length === 0) return;
+  
+  // 🔍 调试轨迹数量
+  if (personIndex === 0) {
+    console.log(`🔍 轨迹绘制 (person ${personIndex}, moving=${isMoving}):`, {
+      fullLength: fullTrajectory.length,
+      filteredLength: trajectory.length,
+      firstPoint: trajectory[0],
+      lastPoint: trajectory[trajectory.length - 1]
+    });
+  }
   
   // 使用第一个雷达作为展示雷达
   const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
@@ -1571,32 +1588,70 @@ const drawPersonTrajectory = (
     return;
   }
   
+  // 每个人的专属颜色（绿/黄/蓝/红）
+  const personColors = [
+    { name: '绿色', r: 80, g: 220, b: 80 },    // 人0: 绿色
+    { name: '黄色', r: 255, g: 220, b: 0 },    // 人1: 黄色
+    { name: '蓝色', r: 80, g: 150, b: 255 },   // 人2: 蓝色
+    { name: '红色', r: 255, g: 80, b: 80 }     // 人3: 红色
+  ];
+  
+  const targetColor = personColors[personIndex] || personColors[0];
+  
+  // offset 和 scale
+  const offsetX = canvasStore.width / 2;
+  const offsetY = 0;
+  
   ctx.save();
-  ctx.strokeStyle = 'rgba(24, 144, 255, 0.4)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([5, 5]);
   
-  ctx.beginPath();
-  
-  // 转换第一个点（已经是 cm）
-  const firstRadarPoint: RadarPoint = {
-    h: trajectory[0].x,  // cm
-    v: trajectory[0].y
-  };
-  const firstCanvasPoint = toCanvasCoordinate(firstRadarPoint, radar);
-  ctx.moveTo(firstCanvasPoint.x * scale.value, firstCanvasPoint.y * scale.value);
-  
-  // 连接后续点
-  for (let i = 1; i < trajectory.length; i++) {
+  // 先转换所有点的坐标
+  const screenPoints = trajectory.map((pos: any) => {
     const radarPoint: RadarPoint = {
-      h: trajectory[i].x,  // cm
-      v: trajectory[i].y
+      h: pos.x,  // cm
+      v: pos.y   // cm
     };
     const canvasPoint = toCanvasCoordinate(radarPoint, radar);
-    ctx.lineTo(canvasPoint.x * scale.value, canvasPoint.y * scale.value);
+    return {
+      x: offsetX + canvasPoint.x * scale.value,
+      y: offsetY + canvasPoint.y * scale.value
+    };
+  });
+  
+  // 1. 先绘制连线（在点的下层，使用淡淡的颜色）
+  if (screenPoints.length >= 2) {
+    ctx.beginPath();
+    ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+    
+    for (let i = 1; i < screenPoints.length; i++) {
+      ctx.lineTo(screenPoints[i].x, screenPoints[i].y);
+    }
+    
+    // 淡淡的连线，使用该人员颜色，30%透明度
+    ctx.strokeStyle = `rgba(${targetColor.r}, ${targetColor.g}, ${targetColor.b}, 0.3)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
   
-  ctx.stroke();
+  // 2. 再绘制圆点（在上层，颜色渐变）
+  screenPoints.forEach((point, index) => {
+    // 颜色渐变：白色 → 该人员颜色（均匀渐变）
+    const progress = index / (screenPoints.length - 1 || 1); // 0 到 1
+    const red = Math.round(255 - (255 - targetColor.r) * progress);
+    const green = Math.round(255 - (255 - targetColor.g) * progress);
+    const blue = Math.round(255 - (255 - targetColor.b) * progress);
+    
+    // 绘制圆点
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+    ctx.fill();
+    
+    // 圆点边框
+    ctx.strokeStyle = `rgba(${targetColor.r}, ${targetColor.g}, ${targetColor.b}, 0.8)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+  
   ctx.restore();
 };
 
