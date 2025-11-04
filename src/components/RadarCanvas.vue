@@ -3,10 +3,13 @@
     <div class="canvas-header">
       <h3>{{ canvasTitle }}</h3>
       <div class="header-right">
-        <label class="vital-toggle">
-          <input type="checkbox" v-model="showVital" />
-          <span>Vital</span>
-        </label>
+        <div class="vital-toggle">
+          <span class="vital-label">Vital</span>
+          <label class="switch">
+            <input type="checkbox" v-model="showVital" />
+            <span class="slider"></span>
+          </label>
+        </div>
         <div class="zoom-controls">
           <button @click="adjustZoom(-0.1)" class="zoom-btn">−</button>
           <span class="zoom-level">{{ Math.round(scale * 100) }}%</span>
@@ -67,7 +70,8 @@ import { drawObjects } from '@/utils/drawObjects';
 import { drawLine, drawRectangle, drawCircle, drawSector } from '@/utils/drawShapes';
 import type { Point, RadarPoint } from '@/utils/types';
 import { getRadarBoundaryVertices, toCanvasCoordinate } from '@/utils/radarUtils';
-import { RADAR_DEFAULT_CONFIG, MOVE_STEP, FURNITURE_CONFIGS, type FurnitureType } from '@/utils/types';
+import { RADAR_DEFAULT_CONFIG, MOVE_STEP, FURNITURE_CONFIGS, type FurnitureType, PersonPosture } from '@/utils/types';
+import { alarmSound } from '@/utils/alarmSound';
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const canvasStore = useCanvasStore();
@@ -76,7 +80,7 @@ const objectsStore = useObjectsStore();
 const scale = ref(1.0);
 const mouseX = ref(0);
 const mouseY = ref(0);
-const showVital = ref(false);
+const showVital = ref(true);  // 默认开启
 
 // 动画渲染控制
 const animationFrameId = ref<number | null>(null);
@@ -84,6 +88,9 @@ const isAnimating = ref(false);
 
 // 姿态图片缓存（用于Canvas绘制）
 const postureImageCache = new Map<number, HTMLImageElement>();
+
+// 跌倒报警记录（避免重复播放）
+const fallAlarmSet = new Set<string>();
 
 // 预加载所有姿态图标
 const preloadPostureIcons = async (): Promise<void> => {
@@ -1418,13 +1425,44 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
   // 获取当前在场的所有人员
   const persons = radarDataStore.currentPersons;
   
-  if (persons.length === 0) return;
+  if (persons.length === 0) {
+    return;
+  }
   
   let hasActiveAnimation = false;
   
-  persons.forEach(person => {
+  persons.forEach((person, i) => {
     // 跳过无人标记（id=88）
     if (person.id === 88) return;
+    
+    // 检测跌倒并播放报警声（每个人每次跌倒只播放一次）
+    const personKey = `${person.deviceCode}_${person.personIndex}_${person.posture}`;
+    if (person.posture === PersonPosture.FallConfirm) {
+      if (!fallAlarmSet.has(personKey)) {
+        console.log(`🚨 跌倒报警：Person ${person.personIndex}`);
+        alarmSound.playAlarm();
+        fallAlarmSet.add(personKey);
+        
+        // 5秒后清除记录（允许再次报警）
+        setTimeout(() => {
+          fallAlarmSet.delete(personKey);
+        }, 5000);
+      }
+    } else {
+      // 如果姿态不是跌倒，清除该人员的报警记录
+      fallAlarmSet.delete(personKey);
+    }
+    
+    // 调试person对象（仅首个人首帧）
+    if (i === 0) {
+      console.log(`🧍 Person数据:`, {
+        id: person.id,
+        posture: person.posture,
+        position: person.position,
+        targetPosition: person.targetPosition,
+        isMoving: person.isMoving
+      });
+    }
     
     // 获取插值后的位置（平滑动画）
     const currentPos = getInterpolatedPosition(person);
@@ -1433,6 +1471,11 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     const moving = isPersonMoving(person);
     if (moving) {
       hasActiveAnimation = true;
+    }
+    
+    // 调试插值后的位置
+    if (i === 0) {
+      console.log(`📍 插值后位置:`, currentPos);
     }
     
     // ===== 坐标转换：雷达坐标系 -> 画布坐标系 =====
@@ -1460,6 +1503,15 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     const screenX = offsetX + canvasPoint.x * scale.value;
     const screenY = offsetY + canvasPoint.y * scale.value;
     
+    // 调试坐标转换（仅首帧）
+    if (i === 0) {
+      console.log(`📍 人员坐标转换:`, {
+        雷达坐标: `(H=${radarPoint.h}, V=${radarPoint.v})`,
+        Canvas坐标: `(${canvasPoint.x.toFixed(1)}, ${canvasPoint.y.toFixed(1)})`,
+        屏幕坐标: `(${screenX.toFixed(1)}, ${screenY.toFixed(1)})`
+      });
+    }
+    
     // ===== 确定显示的姿态（移动时自动切换为Walking） =====
     const displayPosture = moving ? 1 : person.posture;  // 1 = Walking
     
@@ -1467,9 +1519,11 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     const postureImg = postureImageCache.get(displayPosture);
     const config = POSTURE_CONFIGS[displayPosture];
     
-    // 调试信息（只在第一帧输出）
-    if (person.id % 100 === 0 || !postureImg) {
-      console.log(`  🎨 尝试绘制姿态 ${displayPosture}:`, {
+    // 调试信息（第一帧或图标缺失时输出）
+    if (i === 0 || !postureImg || !postureImg.complete) {
+      const logLevel = (!postureImg || !postureImg.complete) ? 'warn' : 'log';
+      console[logLevel](`${i === 0 ? '📍' : '⚠️'} 姿态图标 posture=${displayPosture}:`, {
+        personIndex: person.personIndex,
         hasImg: !!postureImg,
         imgComplete: postureImg?.complete,
         hasConfig: !!config,
@@ -1496,14 +1550,14 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
       );
       ctx.restore();
     } else {
-      // 降级方案：绘制简单圆圈
+      // 降级方案：绘制简单圆点（蓝色小圆点）
       ctx.save();
       ctx.beginPath();
-      ctx.arc(screenX, screenY, 8 * scale.value, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
+      ctx.arc(screenX, screenY, 4 * scale.value, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(24, 144, 255, 0.8)';  // 蓝色
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 0, 0, 1)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(24, 144, 255, 1)';
+      ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
     }
@@ -2100,22 +2154,22 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   const vital = radarDataStore.currentVital;
   if (!vital) return;
   
+  // 调试vital数据（每30秒输出一次）
+  const now = Date.now();
+  const logKey = 'vitalPanel';
+  if (!window[`_lastLog_${logKey}`] || now - window[`_lastLog_${logKey}`] > 30000) {
+    console.log(`💊 Vital面板:`, {
+      heartRate: vital.heartRate,
+      breathing: vital.breathing,
+      sleepState: vital.sleepState
+    });
+    window[`_lastLog_${logKey}`] = now;
+  }
+  
   ctx.save();
   
-  // 透明白色背景，带阴影
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 2;
-  ctx.fillRect(10, 10, 180, 90);
-  ctx.shadowColor = 'transparent'; // 重置阴影
+  // 全透明背景，只显示图标和文字
   
-  // 边框
-  ctx.strokeStyle = 'rgba(224, 224, 224, 0.8)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(10, 10, 180, 90);
-
   // 统一图标加载和绘制函数
   const drawIconAndText = (
     iconConfig: PostureIconConfig, 
@@ -2156,6 +2210,7 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   const sleepLabel = sleepStatus === 'deep' ? 'Deep' : 
                     sleepStatus === 'light' ? 'Light' : 
                     sleepStatus === 'awake' ? 'Awake' : '--';
+  
   drawIconAndText(
     VITAL_SIGN_CONFIGS.sleep[sleepStatus], 
     20, 80,
@@ -2447,19 +2502,64 @@ onUnmounted(() => {
 .vital-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   font-size: 12px;
+}
+
+.vital-label {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 滑钮开关样式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
   cursor: pointer;
-  user-select: none;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ff4d4f;  /* Off时红色 */
+  transition: 0.3s;
+  border-radius: 20px;
+}
 
-  input[type="checkbox"] {
-    margin: 0;
-  }
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
 
-  span {
-    color: #666;
-    font-weight: 500;
-  }
+.switch input:checked + .slider {
+  background-color: #52c41a;  /* On时绿色 */
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(20px);  /* 滑到右边 */
+}
+
+.slider:hover {
+  opacity: 0.9;
 }
 </style>
 

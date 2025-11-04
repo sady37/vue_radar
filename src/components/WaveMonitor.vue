@@ -121,7 +121,6 @@
           :key="speed"
           @click="playbackSpeed = speed"
           :class="['speed-btn-inline', { active: playbackSpeed === speed }]"
-          :disabled="isPlaying"
         >
           {{ speed }}x
         </button>
@@ -346,9 +345,25 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       console.log(`📊 文件数据: ${historicalData.length} 条记录`);
       
     } else if (source === 'demo') {
-      // Demo 模式：使用仿真数据
-      console.log('🎲 Demo mode: Generating simulated data');
-      console.log('📦 Canvas objects:', objectsStore.objects.length);
+      // Demo 模式：仅生成雷达数据，使用Canvas中已有的布局
+      console.log('🎲 Demo mode: Generating simulated radar data');
+      console.log('📦 使用Canvas布局，对象数量:', objectsStore.objects.length);
+      
+      // 检查是否有雷达
+      const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
+      if (!radar) {
+        alert('⚠️ 请先加载Canvas布局（需要雷达对象）\n\n操作步骤：\n1. 点击 Load Layout\n2. 选择 Canvas_Tom.json\n3. 再点击 Demo');
+        radarDataStore.setPlaybackMode(false);
+        return;
+      }
+      
+      const bed = objectsStore.objects.find(obj => obj.typeName === 'Bed');
+      console.log(`✅ 使用展示雷达: ${radar.name || radar.id}`);
+      if (bed) {
+        console.log(`✅ 检测到床对象: ${bed.name || bed.id}`);
+      } else {
+        console.log('⚠️ 未检测到床对象，将使用雷达中心区域模拟床上场景');
+      }
       
       // 创建 MockRadarService 实例（传递 Canvas 对象）
       mockService = new MockRadarService(
@@ -356,15 +371,15 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
         objectsStore.objects  // 传递 Canvas 对象数组
       );
       
-      // 获取仿真历史数据（生成60秒的数据）
-      const demoSeconds = 60;
+      // 获取仿真历史数据（生成240秒=4分钟的数据）
+      const demoSeconds = 240;
       historicalData = mockService.getHistoricalData(demoSeconds);
       totalSeconds.value = historicalData.length;
       
-      console.log(`📊 Demo 数据: ${historicalData.length} 条仿真记录`);
+      console.log(`📊 生成 ${historicalData.length} 条仿真雷达数据`);
       
       if (historicalData.length > 0) {
-        console.log('📌 第一帧数据示例:', historicalData[0]);
+        console.log('📌 第一帧示例:', historicalData[0]);
       }
     }
     
@@ -384,6 +399,9 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     currentTimeDisplay.value = formatSecondsToTime(historicalData[0].timestamp);
     
     console.log('✅ 开始播放历史数据...');
+    
+    // 等待200ms确保姿态图标预加载完成
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     // 播放历史数据
     let currentIndex = 0;
@@ -410,18 +428,29 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       // 获取当前帧数据
       const frameData = historicalData[currentIndex];
       
-      console.log(`📊 Frame ${currentIndex}/${historicalData.length}:`, {
-        timestamp: frameData.timestamp,
-        personsCount: frameData.persons.length,
-        persons: frameData.persons
-      });
-      
-      // 更新雷达数据（只传递 persons 数组）
+      // 更新雷达数据（persons中已包含生理数据：heartRate, breathRate, sleepState）
       radarDataStore.updatePersons(frameData.persons);
       
-      // 验证数据是否更新到 store
-      console.log(`  ✅ Store persons count: ${radarDataStore.persons.length}`);
-      console.log(`  ✅ Store currentPersons count: ${radarDataStore.currentPersons.length}`);
+      // 调试：每10帧输出一次
+      if (currentIndex % 10 === 0) {
+        console.log(`📊 Frame ${currentIndex}/${historicalData.length}:`, {
+          timestamp: frameData.timestamp,
+          personsCount: frameData.persons.length,
+          person: frameData.persons[0] ? {
+            posture: frameData.persons[0].posture,
+            position: frameData.persons[0].position,
+            heartRate: frameData.persons[0].heartRate,
+            breathRate: frameData.persons[0].breathRate,
+            sleepState: frameData.persons[0].sleepState
+          } : null
+        });
+      }
+      
+      // 验证数据是否更新到 store（仅首帧输出）
+      if (currentIndex === 0) {
+        console.log(`  ✅ Store persons count: ${radarDataStore.persons.length}`);
+        console.log(`  ✅ Store currentPersons count: ${radarDataStore.currentPersons.length}`);
+      }
       
       // 更新进度显示
       currentTimeDisplay.value = formatSecondsToTime(frameData.timestamp);
@@ -494,8 +523,8 @@ const parseRealData = (content: string): any[] => {
             z: safeParse(cols[5])
           },
           heartRate: undefined,
-          breathingRate: undefined,
-          sleepStatus: undefined
+          breathRate: undefined,
+          sleepState: undefined
         }]
       };
       

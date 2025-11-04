@@ -30,85 +30,85 @@ console.log('  FallConfirm path:', iconMap['FallConfirm']);
 export const POSTURE_CONFIGS: Record<number, PostureIconConfig> = {
 	0: {
 	  // Init
-	  type: "svg",
-	  iconPath: iconMap["Init"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/Init.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	1: {
 	  // Walking
-	  type: "svg",
-	  iconPath: iconMap["Walking"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/Walking.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	2: {
 	  // FallSuspect
-	  type: "svg",
-	  iconPath: iconMap["FallSuspect"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/FallSuspect.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	3: {
 	  // Sitting
-	  type: "svg",
-	  iconPath: iconMap["Sitting"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/Sitting.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	4: {
 	  // Standing
-	  type: "svg",
-	  iconPath: iconMap["Standing"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/Standing.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	5: {
 	  // FallConfirm
-	  type: "svg",
-	  iconPath: iconMap["FallConfirm"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/FallConfirm.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	6: {
-	  // Lying
-	  type: "svg",
-	  iconPath: iconMap["LyingBed-black"],
+	  // Lying (在床上躺着)
+	  type: "png",
+	  iconPath: new URL("../assets/icons/LyingBed-back.png", import.meta.url).href,
 	  size: 50,
 	  showLabel: false,
 	},
 	7: {
 	  // SitGroundSuspect
-	  type: "svg",
-	  iconPath: iconMap["SitGroundSuspect"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/SitGroundSuspect.png", import.meta.url).href,
 	  size: 60,
 	  showLabel: false,
 	},
 	8: {
 	  // SitGroundConfirm
-	  type: "svg",
-	  iconPath: iconMap["SitGroundConfirm"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/SitGroundConfirm.png", import.meta.url).href,
 	  size: 60,
 	  showLabel: false,
 	},
 	9: {
 	  // SitUpBed
-	  type: "svg",
-	  iconPath: iconMap["SitUpBed"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/SitUpBed.png", import.meta.url).href,
 	  size: 60,
 	  showLabel: false,
 	},
 	10: {
 	  // SitUpBedSuspect
-	  type: "svg",
-	  iconPath: iconMap["SitUpBedSuspect"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/SitUpBedSuspect.png", import.meta.url).href,
 	  size: 60,
 	  showLabel: false,
 	},
 	11: {
 	  // SitUpBedConfirm
-	  type: "svg",
-	  iconPath: iconMap["SitUpBedConfirm"],
+	  type: "png",
+	  iconPath: new URL("../assets/icons/SitUpBedConfirm.png", import.meta.url).href,
 	  size: 60,
 	  showLabel: false,
 	},

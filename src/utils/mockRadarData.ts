@@ -8,10 +8,12 @@
   } from "./types";
   import { 
 	toRadarCoordinate,
+	toCanvasCoordinate,
 	getRadarBoundaryVertices,
 	isPointInPolygon,
 	getObjectVertices
   } from "./radarUtils";
+  import type { RadarPoint } from "./types";
 
   
   // 配置接口定义
@@ -63,7 +65,7 @@
 		  ...config.vitalSignProbability
 		},
 		areaProbability: { 
-		  bed: 0.5,    // 50%概率在确保床上,+50%概率在雷达范围内随机位置，仍有可能在床，总概率为0.6
+		  bed: 0.7,    // 70%概率在床上（增加床上姿态和生理数据展示）
 		  ...config.areaProbability 
 		},
 		duration: {
@@ -137,16 +139,24 @@ private areaSystem = {
       // 获取雷达边界顶点（Canvas坐标系）
       const boundaryVertices = getRadarBoundaryVertices(radar);
       
-      // 0.6 概率使用床位置
+      // 70% 概率使用床位置
       if (Math.random() < this.config.areaProbability.bed) {
         const bed = this.radarObjects.find(obj => obj.typeName === 'Bed');
         if (bed) {
           const bedVertices = getObjectVertices(bed);
           if (bedVertices.length >= 4) {
-            // 返回床的中心点
+            // 计算床的中心点，并略微随机偏移（在床范围内）
             const centerX = bedVertices.reduce((sum, v) => sum + v.x, 0) / bedVertices.length;
             const centerY = bedVertices.reduce((sum, v) => sum + v.y, 0) / bedVertices.length;
-            return { x: centerX, y: centerY };
+            
+            // 添加小范围随机偏移（±20cm），确保仍在床内
+            const offsetX = (Math.random() - 0.5) * 20;
+            const offsetY = (Math.random() - 0.5) * 20;
+            
+            return { 
+              x: centerX + offsetX, 
+              y: centerY + offsetY 
+            };
           }
         }
       }
@@ -398,6 +408,14 @@ private behaviorSystem = {
     const radar = this.areaSystem.getRadar();
     const deviceCode = radar?.device?.iot?.deviceId || 'SIMULATION';
     
+    // 生理指标生成：只在Lying姿态时生成
+    if (this.currentPosture === PersonPosture.Lying) {
+      this.vital = this.behaviorSystem.generateVitalData(this.currentPosture);
+    } else {
+      this.vital = null;
+      this.lastVitalData = null;
+    }
+    
     // 构建人员数据（坐标使用Canvas系统）
     const personData: PersonData = {
       // 核心标识
@@ -413,16 +431,13 @@ private behaviorSystem = {
       remainTime,
       event: 0,
       areaId: inBed ? 1 : 0,  // 1=床区域，0=其他区域
-	  timestamp: Math.floor(currentTime / 1000) // UNIX秒级时间戳
+	  timestamp: Math.floor(currentTime / 1000), // UNIX秒级时间戳
+	  
+	  // 生理指标（从vital数据复制）
+	  heartRate: this.vital?.heartRate,
+	  breathRate: this.vital?.breathing,
+	  sleepState: this.vital?.sleepState
     };
-   
-    // 生理指标生成：只在Lying姿态时生成
-    if (this.currentPosture === PersonPosture.Lying) {
-      this.vital = this.behaviorSystem.generateVitalData(this.currentPosture);
-    } else {
-      this.vital = null;
-      this.lastVitalData = null;
-    }
    
     return [personData];
   }
@@ -529,57 +544,290 @@ private behaviorSystem = {
     this.vitalStateStartTime = 0;
   }
 
-  // 获取历史数据（用于回放）- 生成仿真数据
-  getHistoricalData(durationSeconds: number = 60): any[] {
+  // 获取历史数据（用于回放）- 生成仿真数据（4分钟演示场景）
+  getHistoricalData(durationSeconds: number = 240): any[] {
     console.log(`🎲 生成 ${durationSeconds} 秒的仿真历史数据...`);
     console.log(`📦 雷达对象数量: ${this.radarObjects.length}`);
+    
+    console.log('🔍 查找雷达和床对象...');
+    console.log('   可用对象:', this.radarObjects.map(o => `${o.typeName}(${o.id})`));
     
     const radar = this.radarObjects.find(obj => obj.typeName === 'Radar');
     if (!radar) {
       console.error('❌ 未找到雷达对象，无法生成仿真数据');
+      console.log('   提示：Demo模式会自动创建标准布局');
       return [];
     }
-    console.log(`✅ 找到雷达: ${radar.name || radar.id}`);
+    
+    const bed = this.radarObjects.find(obj => obj.typeName === 'Bed');
+    const hasBed = !!bed;
+    
+    console.log(`✅ 使用雷达: ${radar.name || radar.id}`, radar);
+    if (hasBed && bed) {
+      console.log(`✅ 使用床: ${bed.name || bed.id}`, bed);
+      console.log(`   床对象结构检查:`, {
+        hasDevice: !!bed.device,
+        deviceCategory: bed.device?.category,
+        hasGeometry: !!bed.geometry,
+        geometryType: bed.geometry?.type
+      });
+    }
     
     const baseTimestamp = Math.floor(Date.now() / 1000);
     const historicalData: any[] = [];
     
-    // 每秒生成一次新的数据（模拟人员移动）
-    for (let i = 0; i < durationSeconds; i++) {
-      // 每次调用 generateMockTrackData() 都会生成新的位置/姿态
-      const mockData = this.generateMockTrackData();
+    // 重置状态
+    this.vital = null;
+    this.lastVitalData = null;
+    this.currentVitalState = null;
+    this.vitalStateStartTime = 0;
+    
+    const deviceCode = radar?.device?.iot?.deviceId || 'DEMO_RADAR';
+    
+    // 辅助函数：生成床上位置（雷达坐标系）
+    const getBedRadarPosition = (): RadarPoint => {
+      // 床上人员的雷达坐标：(H=0, V=-50)
+      // H=0: 床的水平中心
+      // V=-50: 床的位置（向前50cm）
+      const h = 0 + (Math.random() - 0.5) * 20;   // ±10cm
+      const v = -50 + (Math.random() - 0.5) * 20; // ±10cm
       
-      if (mockData.length === 0) {
-        if (i === 0) {
-          console.error(`❌ 第 ${i} 秒无法生成仿真数据，可能是雷达配置问题`);
+      return { h, v };
+    };
+    
+    // 辅助函数：生成地面位置（雷达坐标系，移动范围限制在 H: [-30, 30], V: [0, 40]）
+    const getGroundRadarPosition = (fromRadarPos: RadarPoint | null): RadarPoint => {
+      // 限制雷达坐标范围：H: [-30, 30], V: [0, 40]
+      
+      if (fromRadarPos) {
+        // 从上一个位置移动10-30cm
+        const distance = 10 + Math.random() * 20;
+        const angle = Math.random() * Math.PI * 2;
+        let h = fromRadarPos.h + Math.cos(angle) * distance;
+        let v = fromRadarPos.v + Math.sin(angle) * distance;
+        
+        // 限制在范围内 H: [-30, 30], V: [0, 40]
+        h = Math.max(-30, Math.min(30, h));
+        v = Math.max(0, Math.min(40, v));
+        
+        return { h, v };
+      } else {
+        // 首次生成：在范围内随机 H: [-30, 30], V: [0, 40]
+        const h = (Math.random() - 0.5) * 60;   // -30 到 30
+        const v = Math.random() * 40;            // 0 到 40
+        
+        return { h, v };
+      }
+    };
+    
+    // 辅助函数：根据权重随机选择
+    const weightedRandom = (items: Array<{value: any, weight: number}>) => {
+      const total = items.reduce((sum, item) => sum + item.weight, 0);
+      let random = Math.random() * total;
+      for (const item of items) {
+        random -= item.weight;
+        if (random <= 0) return item.value;
+      }
+      return items[0].value;
+    };
+    
+    console.log('📋 演示场景：0-60秒床上（12个周期），60-120秒床下（12个周期）');
+    
+    // 状态跟踪（使用雷达坐标系）
+    let currentRadarPos: RadarPoint | null = null;
+    let currentPosture: number | null = null;
+    let currentVital: VitalSignData | null = null;
+    let postureRemainTime = 0;  // 当前姿态剩余时间（秒）
+    
+    // 定义床上场景的12个周期（每个5秒）
+    const bedScenarios = [
+      // 2个深度睡眠
+      { type: 'deep', duration: 5 },
+      { type: 'deep', duration: 5 },
+      // 2个浅睡眠
+      { type: 'light', duration: 5 },
+      { type: 'light', duration: 5 },
+      // 2个清醒
+      { type: 'awake', duration: 5 },
+      { type: 'awake', duration: 5 },
+      // 2个坐起：第1个灰色，第2个红色
+      { type: 'situp', duration: 5 },          // SitUpBed (灰色)
+      { type: 'situpConfirm', duration: 5 },   // SitUpBedConfirm (红色)
+      // 2个L2
+      { type: 'L2', duration: 5 },
+      { type: 'L2', duration: 5 },
+      // 2个L1
+      { type: 'L1', duration: 5 },
+      { type: 'L1', duration: 5 }
+    ];
+    
+    // 定义床下场景的12个周期（每个5秒）
+    const groundScenarios = [
+      // 2个站立
+      { posture: PersonPosture.Standing, duration: 5 },
+      { posture: PersonPosture.Standing, duration: 5 },
+      // 2个走动
+      { posture: PersonPosture.Walking, duration: 5 },
+      { posture: PersonPosture.Walking, duration: 5 },
+      // 1个坐地可疑
+      { posture: PersonPosture.SitGroundSuspect, duration: 5 },
+      // 1个坐地确认
+      { posture: PersonPosture.SitGroundConfirm, duration: 5 },
+      // 2个跌倒可疑
+      { posture: PersonPosture.FallSuspect, duration: 5 },
+      { posture: PersonPosture.FallSuspect, duration: 5 },
+      // 2个跌倒确认
+      { posture: PersonPosture.FallConfirm, duration: 5 },
+      { posture: PersonPosture.FallConfirm, duration: 5 },
+      // 2个坐姿
+      { posture: PersonPosture.Sitting, duration: 5 },
+      { posture: PersonPosture.Sitting, duration: 5 }
+    ];
+    
+    // 生成2分钟数据
+    for (let i = 0; i < durationSeconds; i++) {
+      // ========== 前60秒：床上场景（0-59秒）==========
+      if (i < 60) {
+        // 床上：雷达坐标固定
+        if (i === 0 || !currentRadarPos) {
+          currentRadarPos = getBedRadarPosition();
+          console.log(`  🛏️  床上雷达坐标: (H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)})`);
         }
+        
+        // 根据时间确定当前周期
+        const cycleIndex = Math.floor(i / 5);  // 每5秒一个周期
+        const scenario = bedScenarios[cycleIndex];
+        
+        // 周期开始时切换姿态
+        if (i % 5 === 0) {
+          switch(scenario.type) {
+            case 'deep':
+              currentPosture = PersonPosture.Lying;
+              currentVital = {
+                type: 0,
+                heartRate: Math.floor(Math.random() * (65 - 50) + 50),
+                breathing: Math.floor(Math.random() * (14 - 10) + 10),
+                sleepState: 128  // 深睡眠
+              };
+              console.log(`  🛏️  第 ${i} 秒: Deep Sleep (5秒)`);
+              break;
+              
+            case 'light':
+              currentPosture = PersonPosture.Lying;
+              currentVital = {
+                type: 0,
+                heartRate: Math.floor(Math.random() * (75 - 60) + 60),
+                breathing: Math.floor(Math.random() * (16 - 12) + 12),
+                sleepState: 64  // 浅睡眠
+              };
+              console.log(`  🛏️  第 ${i} 秒: Light Sleep (5秒)`);
+              break;
+              
+            case 'awake':
+              currentPosture = PersonPosture.Lying;
+              currentVital = {
+                type: 0,
+                heartRate: Math.floor(Math.random() * (90 - 70) + 70),
+                breathing: Math.floor(Math.random() * (18 - 14) + 14),
+                sleepState: 192  // 清醒（192 >> 6 = 3）
+              };
+              console.log(`  🛏️  第 ${i} 秒: Awake (5秒)`);
+              break;
+              
+            case 'situp':
+              currentPosture = PersonPosture.SitUpBed;  // 灰色图标
+              currentVital = {
+                type: 0,
+                heartRate: undefined,  // 坐起时无心率
+                breathing: undefined,  // 坐起时无呼吸
+                sleepState: 192  // 清醒状态
+              };
+              console.log(`  🛏️  第 ${i} 秒: SitUpBed (灰色) (5秒)`);
+              break;
+              
+            case 'situpConfirm':
+              currentPosture = PersonPosture.SitUpBedConfirm;  // 红色图标
+              currentVital = {
+                type: 0,
+                heartRate: undefined,  // 坐起时无心率
+                breathing: undefined,  // 坐起时无呼吸
+                sleepState: 192  // 清醒状态
+              };
+              console.log(`  🛏️  第 ${i} 秒: SitUpBedConfirm (红色) (5秒)`);
+              break;
+              
+            case 'L2':
+              currentPosture = PersonPosture.Lying;
+              currentVital = {
+                type: 0,
+                heartRate: Math.floor(Math.random() * (60 - 48) + 48),
+                breathing: Math.floor(Math.random() * (12 - 9) + 9),
+                sleepState: 128  // L2 = 深睡眠
+              };
+              console.log(`  🛏️  第 ${i} 秒: L2 (5秒)`);
+              break;
+              
+            case 'L1':
+              currentPosture = PersonPosture.Lying;
+              currentVital = {
+                type: 0,
+                heartRate: Math.floor(Math.random() * (72 - 62) + 62),
+                breathing: Math.floor(Math.random() * (15 - 12) + 12),
+                sleepState: 64  // L1 = 浅睡眠
+              };
+              console.log(`  🛏️  第 ${i} 秒: L1 (5秒)`);
+              break;
+          }
+        }
+      } 
+      // ========== 后60秒：床下场景（60-119秒）==========
+      else if (i < 120) {
+        // 根据时间确定当前周期
+        const cycleIndex = Math.floor((i - 60) / 5);  // 0-11
+        const scenario = groundScenarios[cycleIndex];
+        
+        // 周期开始时切换姿态和位置
+        if ((i - 60) % 5 === 0) {
+          // 移动位置（50-200cm）
+          currentRadarPos = getGroundRadarPosition(currentRadarPos);
+          currentPosture = scenario.posture;
+          currentVital = null;
+          
+          console.log(`  🚶 第 ${i} 秒 [床下]: 姿态=${currentPosture}, 雷达坐标=(H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)}) (5秒)`);
+        }
+      }
+      
+      if (!currentRadarPos || currentPosture === null) {
+        console.error(`❌ 第 ${i} 秒状态异常`);
         continue;
       }
       
-      // 将第一个人员的数据转换为回放格式
-      const personData = mockData[0];
-      
+      // 构建帧数据（position使用雷达坐标，格式为{x: h, y: v}，后续会自动转换）
       historicalData.push({
         timestamp: baseTimestamp + i,
         persons: [{
-          id: personData.id,
-          personIndex: personData.personIndex || 0,
-          posture: personData.posture,
-          position: personData.position,
-          heartRate: personData.heartRate,
-          breathingRate: personData.breathingRate,
-          sleepStatus: personData.sleepStatus,
-          deviceCode: personData.deviceCode,
-          timestamp: baseTimestamp + i
+          id: Math.floor(Math.random() * 1000000),
+          personIndex: 0,
+          posture: currentPosture,
+          position: { 
+            x: currentRadarPos.h,  // 雷达H坐标（存为x字段）
+            y: currentRadarPos.v   // 雷达V坐标（存为y字段）
+          },
+          heartRate: currentVital?.heartRate,
+          breathRate: currentVital?.breathing,
+          sleepState: currentVital?.sleepState,
+          deviceCode: deviceCode,
+          timestamp: baseTimestamp + i,
+          remainTime: 0,
+          event: 0,
+          areaId: i < 60 ? 1 : 0  // 前60秒床上(areaId=1)，后60秒床下(areaId=0)
         }]
       });
-      
-      if (i < 3) {
-        console.log(`  📍 Frame ${i}: posture=${personData.posture}, pos=(${personData.position.x.toFixed(1)}, ${personData.position.y.toFixed(1)})`);
-      }
     }
     
     console.log(`✅ 生成了 ${historicalData.length} 条仿真历史记录`);
+    console.log(`   - 0-59秒（60秒）：床上场景，12个周期`);
+    console.log(`   - 60-119秒（60秒）：床下场景，12个周期`);
     return historicalData;
   }
 }

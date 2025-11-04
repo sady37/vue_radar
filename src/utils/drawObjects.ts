@@ -39,7 +39,7 @@ export function drawObject(obj: BaseObject, context: DrawContext): void {
   }
   
   // 如果选中，绘制选中框
-  if (obj.interactive.selected) {
+  if (obj.interactive?.selected) {
     drawSelectionBorder(obj, context);
   }
   
@@ -596,7 +596,7 @@ function drawControlPoint(ctx: CanvasRenderingContext2D, x: number, y: number): 
 
 // ================ 编辑控制点绘制 ================
 export function drawControlPoints(obj: BaseObject, context: DrawContext): void {
-  if (!obj.interactive.selected || obj.interactive.locked) {
+  if (!obj.interactive?.selected || obj.interactive?.locked) {
     return;
   }
   

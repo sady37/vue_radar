@@ -248,11 +248,12 @@ export function isPointInRadarBoundary(point: Point, radar: BaseObject): boolean
  * 获取物体在画布坐标系中的顶点
  */
 export function getObjectVertices(obj: BaseObject): Point[] {
-// 只处理家具类物体
-  if (obj.device.category !== 'furniture') {
+  // 安全检查：只处理家具类物体
+  if (!obj.device || obj.device.category !== 'furniture') {
     return [];
   }
-    const geometry = obj.geometry;
+  
+  const geometry = obj.geometry;
   
   switch (geometry.type) {
     case 'point':
