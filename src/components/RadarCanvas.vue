@@ -18,6 +18,22 @@
         <div class="mouse-position">
           X: {{ mouseX }}, Y: {{ mouseY }}
         </div>
+        <div class="panel-controls">
+          <button 
+            @click="panelControls?.toggleWaveform()" 
+            class="panel-btn"
+            :class="{ active: panelControls?.isWaveformOpen.value }"
+          >
+            Wave
+          </button>
+          <button 
+            @click="panelControls?.toggleToolbar()" 
+            class="panel-btn"
+            :class="{ active: panelControls?.isToolbarOpen.value }"
+          >
+            Toolbar
+          </button>
+        </div>
       </div>
     </div>
     
@@ -54,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
 import { useRadarDataStore } from '@/stores/radarData';
 import { useObjectsStore } from '@/stores/objects';
@@ -81,6 +97,14 @@ const scale = ref(1.0);
 const mouseX = ref(0);
 const mouseY = ref(0);
 const showVital = ref(true);  // 默认开启
+
+// 注入面板控制
+const panelControls = inject<{
+  isWaveformOpen: any;
+  isToolbarOpen: any;
+  toggleWaveform: () => void;
+  toggleToolbar: () => void;
+}>('panelControls');
 
 // 动画渲染控制
 const animationFrameId = ref<number | null>(null);
@@ -131,10 +155,10 @@ const preloadPostureIcons = async (): Promise<void> => {
 // Canvas 标题（显示设备名称）
 const canvasTitle = computed(() => {
   const params = canvasStore.params;
-  if (!params) return 'TrackMonitor';
+  if (!params) return 'Track';
   
   const deviceNames = params.devices.map(d => d.deviceName).join(', ');
-  return deviceNames || 'TrackMonitor';
+  return deviceNames || 'Track';
 });
 // 右键菜单
 const showContextMenu = ref(false);
@@ -2407,15 +2431,18 @@ onUnmounted(() => {
 
 .canvas-header h3 {
   margin: 0;
+  margin-right: 20px;
   font-size: 15px;
   font-weight: 600;
   color: #333;
+  flex-shrink: 0;
 }
 
 .header-right {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex: 1;
 }
 
 .mouse-position {
@@ -2497,6 +2524,40 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 600;
   color: #666;
+}
+
+.panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #f0f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+  }
+  
+  &.active {
+    background: #1890ff;
+    border-color: #1890ff;
+    color: white;
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .vital-toggle {

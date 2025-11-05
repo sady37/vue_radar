@@ -1,13 +1,23 @@
 <template>
   <div class="app-container">
+    <!-- 查询按钮（悬浮） -->
+    <button class="query-btn" @click="showQueryPanel = true" title="查询历史记录">
+      🔍
+    </button>
+    
+    <!-- 查询面板 -->
+    <QueryPanel 
+      :visible="showQueryPanel" 
+      @close="showQueryPanel = false"
+      @success="onQuerySuccess"
+    />
+    
     <div class="radar-system">
       <!-- 左侧：雷达画布 -->
       <RadarCanvas />
 
       <!-- 第一个分隔器 -->
-      <div class="spacer spacer-toggle spacer-top" @click="toggleWaveform">
-        <span class="toggle-icon">{{ isWaveformOpen ? '》' : '《' }}</span>
-      </div>
+      <div class="spacer spacer-toggle" @click="toggleWaveform"></div>
 
       <!-- 中间：示波器 -->
       <div 
@@ -18,9 +28,7 @@
       </div>
 
       <!-- 第二个分隔器 -->
-      <div class="spacer spacer-toggle spacer-bottom" @click="toggleToolbar">
-        <span class="toggle-icon">{{ isToolbarOpen ? '》' : '《' }}</span>
-      </div>
+      <div class="spacer spacer-toggle" @click="toggleToolbar"></div>
 
       <!-- 右侧：工具栏 -->
       <div 
@@ -34,22 +42,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, provide } from 'vue';
 import RadarCanvas from './components/RadarCanvas.vue';
 import WaveMonitor from './components/WaveMonitor.vue';
 import Toolbar from './components/Toolbar.vue';
+import QueryPanel from './components/QueryPanel.vue';
 import { useCanvasStore } from '@/stores/canvas';
 import { useObjectsStore } from '@/stores/objects';
+import { useRadarDataStore } from '@/stores/radarData';
 import { getCanvasParams } from '@/utils/urlParams';
+import { autoQueryFromURL } from '@/utils/autoQuery';
 
 const canvasStore = useCanvasStore();
 const objectsStore = useObjectsStore();
+const radarDataStore = useRadarDataStore();
 
 // 暴露 canvasStore 供其他地方访问
 (window as any).__canvasStore = canvasStore;
 
 const isWaveformOpen = ref(true);
 const isToolbarOpen = ref(true);
+const showQueryPanel = ref(false);
 
 const toggleWaveform = () => {
   isWaveformOpen.value = !isWaveformOpen.value;
@@ -59,9 +72,56 @@ const toggleToolbar = () => {
   isToolbarOpen.value = !isToolbarOpen.value;
 };
 
+const onQuerySuccess = () => {
+  console.log('✅ 查询成功，开始播放历史数据');
+};
+
+// 向子组件提供面板控制
+provide('panelControls', {
+  isWaveformOpen,
+  isToolbarOpen,
+  toggleWaveform,
+  toggleToolbar
+});
+
 // 初始化：接收参数并加载Canvas
-onMounted(() => {
-  // 1. 获取Canvas参数（由上层系统提供）
+onMounted(async () => {
+  // 0. 检查是否是回放模式（直接接收data+layout）
+  const urlParams = new URLSearchParams(window.location.search);
+  const playbackMode = urlParams.get('mode');
+  const dataUrl = urlParams.get('dataUrl');
+  
+  if (playbackMode === 'playback' && dataUrl) {
+    console.log('🎬 回放模式：从服务器加载 data + layout');
+    try {
+      const response = await fetch(dataUrl);
+      const result = await response.json();
+      
+      // 应用布局
+      canvasStore.setLayout(result.layout);
+      
+      // 加载数据
+      radarDataStore.setMode('fromserver');
+      radarDataStore.loadHistoricalData(result.data);
+      
+      console.log('✅ 回放数据加载成功', {
+        radarId: result.radarId,
+        dataLength: result.data?.length
+      });
+      return;
+    } catch (error) {
+      console.error('❌ 回放数据加载失败:', error);
+    }
+  }
+  
+  // 1. 检查是否是URL查询模式（手动查询）
+  const isAutoQuery = await autoQueryFromURL();
+  if (isAutoQuery) {
+    console.log('🎬 URL自动查询模式已启动');
+    return;
+  }
+  
+  // 2. 获取Canvas参数（由上层系统提供）
   const params = getCanvasParams();
   
   if (params) {
@@ -111,9 +171,9 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 分隔器 10x650 */
+/* 分隔器 3x650 */
 .spacer {
-  width: 10px;
+  width: 3px;
   height: 650px;
   background-color: #e0e0e0;
   border-top: 1px solid #ccc;
@@ -122,30 +182,11 @@ onMounted(() => {
 
 .spacer-toggle {
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: background-color 0.2s;
-}
-
-.spacer-toggle.spacer-top {
-  align-items: flex-start;
-  padding-top: 200px;
-}
-
-.spacer-toggle.spacer-bottom {
-  align-items: flex-end;
-  padding-bottom: 200px;
 }
 
 .spacer-toggle:hover {
   background-color: #d0d0d0;
-}
-
-.toggle-icon {
-  color: #666;
-  user-select: none;
-  font-size: 12px;
 }
 
 /* 波形监测容器 */
@@ -170,5 +211,36 @@ onMounted(() => {
 
 .toolbar-wrapper.toolbar-closed {
   width: 0;
+}
+
+/* 查询按钮 */
+.query-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: #1890ff;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.query-btn:hover {
+  background: #40a9ff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+}
+
+.query-btn:active {
+  transform: scale(0.95);
 }
 </style>
