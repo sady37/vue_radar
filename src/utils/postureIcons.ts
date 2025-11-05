@@ -139,17 +139,25 @@ export const VITAL_SIGN_CONFIGS = {
 
 
 // 导出状态判断函数
+// 心率分级标准（次/分钟）：
+// - Normal: [55 - 95] - 充分容纳70岁健康老人在NREM深睡眠期的生理性心动过缓
+// - L2 (中度关注): [45 - 54] 和 [96 - 115] - 明显的生理应激或深度过缓
+// - L1 (高度警示): [0 - 44] 和 [116 - ∞] - 需要临床关注或干预
 export const getHeartRateStatus = (rate: number) => {
 	if (rate === undefined || rate === null || isNaN(rate)||rate ===0||rate ===-255) return 'undefined';
-	if (rate >= 60 && rate <= 95) return 'normal';
-	if ((rate >= 45 && rate <= 59) || (rate >= 96 && rate <= 105)) return 'warning';
+	if (rate >= 55 && rate <= 95) return 'normal';
+	if ((rate >= 45 && rate <= 54) || (rate >= 96 && rate <= 115)) return 'warning';
 	return 'danger';
    };
    
+   // 呼吸率分级标准（次/分钟）：
+   // - Normal: [10 - 23] - 适应睡眠期间的生理性呼吸减慢
+   // - L2 (中度关注): [8 - 9] 和 [24 - 26] - 轻度异常，需要关注
+   // - L1 (高度警示): [0 - 7] 和 [27 - ∞] - 严重异常，需要临床干预
    export const getBreathingStatus = (rate: number) => {
 	if (rate === undefined || rate === null || isNaN(rate)||rate ===0||rate ===-255) return 'undefined';
-	if (rate >= 12 && rate <= 20) return 'normal';
-	if ((rate >= 8 && rate <= 11) || (rate >= 21 && rate <= 26)) return 'warning';
+	if (rate >= 10 && rate <= 23) return 'normal';
+	if ((rate >= 8 && rate <= 9) || (rate >= 24 && rate <= 26)) return 'warning';
 	return 'danger';
    };
    
