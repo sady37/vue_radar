@@ -2,7 +2,7 @@
   <div class="query-panel" v-if="visible">
     <div class="query-overlay" @click="close"></div>
     <div class="query-content">
-      <h3>历史数据播放</h3>
+      <h3>Historical Data Playback</h3>
       
       <!-- 模式选择 -->
       <div class="mode-tabs">
@@ -10,26 +10,38 @@
           :class="{ active: mode === 'manual' }"
           @click="mode = 'manual'"
         >
-          手动导入
+          Manual Import
         </button>
         <button 
           :class="{ active: mode === 'auto' }"
           @click="mode = 'auto'"
         >
-          自动查询
+          Auto Query
         </button>
+      </div>
+      
+      <!-- Track/Vital选择 -->
+      <div class="data-type-selector">
+        <label class="radio-option">
+          <input type="radio" value="track" v-model="dataType" />
+          <span>Track</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" value="vital" v-model="dataType" />
+          <span>Vital</span>
+        </label>
       </div>
       
       <!-- 手动模式 -->
       <div v-if="mode === 'manual'" class="manual-mode">
         <div class="file-upload">
-          <label>数据文件：</label>
+          <label>Data File:</label>
           <input type="file" @change="loadDataFile" accept=".json" />
           <span v-if="dataFile" class="file-name">✓ {{ dataFile.name }}</span>
         </div>
         
         <div class="file-upload">
-          <label>布局文件：</label>
+          <label>Layout File:</label>
           <input type="file" @change="loadLayoutFile" accept=".json" />
           <span v-if="layoutFile" class="file-name">✓ {{ layoutFile.name }}</span>
         </div>
@@ -40,34 +52,34 @@
             :disabled="!dataFile || !layoutFile || loading"
             class="btn-primary"
           >
-            {{ loading ? '加载中...' : '播放' }}
+            {{ loading ? 'Loading...' : 'Play' }}
           </button>
-          <button @click="close" class="btn-secondary">取消</button>
+          <button @click="close" class="btn-secondary">Cancel</button>
         </div>
       </div>
       
       <!-- 自动模式 -->
       <div v-else class="auto-mode">
         <div class="form-row">
-          <label>雷达ID：</label>
-          <input v-model="radarId" type="text" placeholder="例如：RADAR_001" />
+          <label>DeviceID:</label>
+          <input v-model="deviceId" type="text" placeholder="e.g. DEVICE_001" />
         </div>
         
         <div class="form-row">
-          <label>开始时间：</label>
+          <label>Start Time:</label>
           <input v-model="startTime" type="datetime-local" />
         </div>
         
         <div class="form-row">
-          <label>结束时间：</label>
+          <label>End Time:</label>
           <input v-model="endTime" type="datetime-local" />
         </div>
         
         <div class="form-actions">
           <button @click="playAuto" :disabled="loading" class="btn-primary">
-            {{ loading ? '查询中...' : '播放' }}
+            {{ loading ? 'Querying...' : 'Play' }}
           </button>
-          <button @click="close" class="btn-secondary">取消</button>
+          <button @click="close" class="btn-secondary">Cancel</button>
         </div>
       </div>
       
@@ -94,6 +106,7 @@ const canvasStore = useCanvasStore();
 const radarDataStore = useRadarDataStore();
 
 const mode = ref<'manual' | 'auto'>('auto');  // 默认自动模式
+const dataType = ref<'track' | 'vital'>('track');  // 数据类型：Track/Vital
 const loading = ref(false);
 const error = ref('');
 
@@ -104,7 +117,7 @@ const manualData = ref<any>(null);
 const manualLayout = ref<any>(null);
 
 // 自动模式
-const radarId = ref('');
+const deviceId = ref('');
 const startTime = ref('');
 const endTime = ref('');
 
@@ -117,9 +130,9 @@ const loadDataFile = (e: Event) => {
     reader.onload = (e) => {
       try {
         manualData.value = JSON.parse(e.target?.result as string);
-        console.log('✓ 数据文件加载成功');
+        console.log('✓ Data file loaded successfully');
       } catch (err) {
-        error.value = '数据文件格式错误';
+        error.value = 'Invalid data file format';
       }
     };
     reader.readAsText(file);
@@ -135,9 +148,9 @@ const loadLayoutFile = (e: Event) => {
     reader.onload = (e) => {
       try {
         manualLayout.value = JSON.parse(e.target?.result as string);
-        console.log('✓ 布局文件加载成功');
+        console.log('✓ Layout file loaded successfully');
       } catch (err) {
-        error.value = '布局文件格式错误';
+        error.value = 'Invalid layout file format';
       }
     };
     reader.readAsText(file);
@@ -147,7 +160,7 @@ const loadLayoutFile = (e: Event) => {
 // 手动播放
 const playManual = () => {
   if (!manualData.value || !manualLayout.value) {
-    error.value = '请先加载数据和布局文件';
+    error.value = 'Please load data and layout files first';
     return;
   }
   
@@ -161,7 +174,7 @@ const playManual = () => {
     emit('success');
     close();
   } catch (err: any) {
-    error.value = err.message || '播放失败';
+    error.value = err.message || 'Playback failed';
   } finally {
     loading.value = false;
   }
@@ -169,8 +182,8 @@ const playManual = () => {
 
 // 自动播放
 const playAuto = async () => {
-  if (!radarId.value || !startTime.value || !endTime.value) {
-    error.value = '请填写完整信息';
+  if (!deviceId.value || !startTime.value || !endTime.value) {
+    error.value = 'Please fill in all fields';
     return;
   }
   
@@ -182,26 +195,28 @@ const playAuto = async () => {
     const end = new Date(endTime.value).getTime();
     
     // 调用后端API
-    const response = await fetch('/api/radar/playback', {
+    const apiEndpoint = dataType.value === 'track' ? '/api/radar/playback' : '/api/vital/playback';
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        radarId: radarId.value,
+        deviceId: deviceId.value,
+        dataType: dataType.value,
         startTime: start,
         endTime: end,
       }),
     });
     
     if (!response.ok) {
-      throw new Error('查询失败');
+      throw new Error('Query failed');
     }
     
     const result = await response.json();
     
     if (!result.success) {
-      throw new Error(result.message || '查询失败');
+      throw new Error(result.message || 'Query failed');
     }
     
     // 应用配置并播放
@@ -210,7 +225,7 @@ const playAuto = async () => {
     emit('success');
     close();
   } catch (err: any) {
-    error.value = err.message || '查询失败，请稍后重试';
+    error.value = err.message || 'Query failed, please try again later';
   } finally {
     loading.value = false;
   }
@@ -301,6 +316,34 @@ const close = () => {
 
 .mode-tabs button:hover:not(.active) {
   color: #40a9ff;
+}
+
+.data-type-selector {
+  display: flex;
+  gap: 20px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.radio-option input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.radio-option span {
+  font-weight: 500;
 }
 
 .manual-mode,

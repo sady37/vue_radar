@@ -2,11 +2,21 @@
   <div class="wave-monitor">
     <div class="wave-header">
       <h3>WaveMonitor</h3>
+      <button class="query-btn" @click="showQueryPanel = true" title="Query Historical Data">
+        🔍
+      </button>
     </div>
+    
+    <!-- Query Panel -->
+    <QueryPanel 
+      :visible="showQueryPanel" 
+      @close="showQueryPanel = false"
+      @success="onQuerySuccess"
+    />
     
     <!-- Toolbar -->
     <div class="track-toolbar">
-      <!-- Row 1: fromServer -->
+      <!-- Row 1: DeviceID query parameters + PlayBack -->
       <div class="control-row">
         <label class="row-label">fromServer:</label>
         <input 
@@ -14,49 +24,54 @@
           v-model="selectedDeviceId" 
           class="device-input"
           placeholder="DeviceID"
+          list="device-list"
         />
+        <datalist id="device-list">
+          <option v-for="device in canvasDevices" :key="device.deviceId" :value="device.deviceId">
+            {{ device.deviceId }} ({{ device.name }})
+          </option>
+        </datalist>
         
         <label class="inline-label">Start:</label>
         <input 
           type="text" 
           v-model="timeInput" 
-          class="time-input"
-          placeholder="2025110423:27:42"
+          class="time-input time-input-wide"
+          placeholder="2025103123:27:28"
         />
         
         <label class="inline-label">～</label>
         <input 
-          type="number" 
-          v-model.number="timeLong" 
+          type="text" 
+          v-model="timeLong" 
+          @blur="limitTimeLong"
           class="time-long-input"
-          min="1"
-          max="60"
+          :disabled="useEventTime"
+          placeholder="1-30"
         />
         <span class="unit">mins</span>
         
-        <button 
-          class="action-btn primary" 
-          @click="handleLoadServer"
-          :disabled="!canLoadServer"
-        >
-          Load
-        </button>
+        <label class="checkbox-option">
+          <input type="checkbox" v-model="useEventTime" />
+          <span>Event</span>
+        </label>
         
         <button 
-          class="action-btn success" 
-          @click="handleRealTimeServer"
-          :disabled="!canRealTimeServer"
+          class="action-btn primary" 
+          @click="handlePlayBack"
+          :disabled="!canPlayBack"
         >
-          RealTime
+          Play
         </button>
       </div>
       
-      <!-- Row 2: fromFile -->
+      <!-- Row 2: File + Display + PlayFile + PlayDemo -->
       <div class="control-row">
-        <label class="row-label">fromFile:</label>
+        <label class="row-label">fromLocalFile:</label>
         <button 
-          class="action-btn file-btn" 
-          @click="handleFromFile"
+          class="action-btn primary" 
+          @click="handleFromFile" 
+          :disabled="isPlaying"
         >
           File
         </button>
@@ -66,39 +81,33 @@
           <span v-else class="placeholder">No file selected</span>
         </div>
         
-        <button 
-          class="action-btn primary" 
-          @click="handleLoadFile"
-          :disabled="!canLoadFile"
-        >
-          Load
-        </button>
-        
-        <button 
-          class="action-btn success" 
-          @click="handleRealTimeFile"
-          :disabled="!canRealTimeFile"
-        >
-          RealTime
-        </button>
-        
-        <label class="inline-label">Select:</label>
-        <select v-model="displayDeviceId" class="device-select">
+        <label class="inline-label">Display:</label>
+        <select v-model="displayRadarId" class="display-select">
           <option value="">Auto</option>
-          <option v-for="device in canvasDevices" :key="device.deviceId" :value="device.deviceId">
-            {{ device.name }}
+          <option v-for="radar in canvasRadars" :key="radar.id" :value="radar.id">
+            {{ radar.name }}
           </option>
         </select>
         
         <button 
-          class="action-btn demo" 
-          @click="handleDemo"
+          class="action-btn" 
+          :class="{ 'enabled': canPlayFile && !isPlaying }"
+          @click="handlePlayFile"
+          :disabled="!canPlayFile || isPlaying"
+        >
+          Play
+        </button>
+        
+        <button 
+          class="action-btn success" 
+          @click="handlePlayDemo"
+          :disabled="isPlaying"
         >
           Demo
         </button>
       </div>
       
-      <!-- Row 3: Playback controls -->
+      <!-- Row 3: Pause/Stop + Speed + Progress -->
       <div class="control-row row-tight">
         <button 
           class="action-btn control-btn" 
@@ -138,68 +147,152 @@
         <div v-else class="progress-placeholder">
           --:--:--/--/--
         </div>
+        
+        <span class="section-label section-label-end">Track</span>
+      </div>
+    </div>
+    
+    <!-- HR/RR Controls -->
+    <div class="vital-toolbar">
+      <!-- Row 1: fromServer for HR/RR -->
+      <div class="vital-row">
+        <label class="row-label">fromServer:</label>
+        <input 
+          type="text" 
+          v-model="vitalDeviceId" 
+          class="device-input-sm"
+          placeholder="DeviceID"
+        />
+        
+        <label class="inline-label">Start:</label>
+        <input 
+          type="text" 
+          v-model="vitalTimeInput" 
+          class="time-input time-input-wide"
+          placeholder="2025110423:27:42"
+        />
+        
+        <label class="inline-label">～</label>
+        <input 
+          type="text" 
+          v-model="vitalTimeLong" 
+          @blur="limitVitalTimeLong"
+          class="time-long-input"
+          placeholder="5-30"
+        />
+        <span class="unit">mins</span>
+        
+        <button 
+          class="action-btn primary" 
+          @click="handleLoadVitalServer"
+          :disabled="!canLoadVitalServer"
+        >
+          Load
+        </button>
+        
+        <span class="section-label section-label-end">Vital</span>
+      </div>
+      
+      <!-- Row 2: fromFile for HR/RR -->
+      <div class="vital-row">
+        <label class="row-label">fromFile:</label>
+        <button 
+          class="action-btn primary" 
+          @click="handleVitalFromFile"
+        >
+          File
+        </button>
+        
+        <div class="file-display-box-sm" :class="{ 'has-file': vitalFileName }">
+          <span v-if="vitalFileName" :title="vitalFileName">{{ vitalFileName }}</span>
+          <span v-else class="placeholder">No file</span>
+        </div>
+        
+        <button 
+          class="action-btn primary" 
+          @click="handleLoadVitalFile"
+          :disabled="!canLoadVitalFile"
+        >
+          Load
+        </button>
+        
+        <button 
+          class="action-btn primary realtime-btn" 
+          @click="handleRealTimeVital"
+          :disabled="!canRealTimeVital"
+        >
+          RealTime
+        </button>
+        
+        <select v-model="vitalSelectDevice" class="device-select-sm">
+          <option value="">Auto</option>
+          <option v-for="device in canvasDevices" :key="device.deviceId" :value="device.deviceId">
+            {{ device.name }}
+          </option>
+        </select>
+        
+        <div class="style-control">
+          <label class="inline-label">Style:</label>
+          <label class="bg-toggle">
+            <span class="bg-text-fixed">{{ darkBackground ? 'Black' : 'White' }}</span>
+            <input type="checkbox" v-model="darkBackground" />
+          </label>
+        </div>
       </div>
     </div>
     
     <!-- Waveform display area -->
     <div class="waveform-content">
-      <div v-if="!dataLoaded" class="placeholder">
-        <p>Select data source and click Play or Demo</p>
-        <p v-if="useEventTime" class="hint">Event: 60s before + 120s after = 3min</p>
-        <p v-else class="hint">StartTime: {{ timeLong }}min</p>
+      <div class="placeholder">
+        <p>Waveform display area (to be implemented)</p>
       </div>
-      <div v-else class="waveform-display">
-        <!-- Waveform Controls -->
-        <div class="waveform-controls">
-          <label class="waveform-option">
-            <input type="checkbox" v-model="showHR" @change="drawWaveform" />
-            <span>HR</span>
-          </label>
-          <label class="waveform-option">
-            <input type="checkbox" v-model="showRR" @change="drawWaveform" />
-            <span>RR</span>
-          </label>
-          <label class="waveform-option">
-            <input type="checkbox" v-model="darkBackground" @change="drawWaveform" />
-            <span>Dark</span>
-          </label>
-        </div>
-        
-        <!-- Single Canvas for both HR and RR -->
-        <canvas 
-          ref="waveformCanvasRef" 
-          class="waveform-canvas"
-          :style="{ backgroundColor: darkBackground ? '#000000' : '#ffffff' }"
-        ></canvas>
+    </div>
+    
+    <!-- Status display area (2 lines) -->
+    <div class="status-display">
+      <div class="status-line">
+        <span v-if="!dataLoaded">Select data source and click Play or Demo</span>
+        <span v-else>Data loaded: {{ loadedDataInfo }}</span>
+      </div>
+      <div class="status-line">
+        <span v-if="useEventTime && !isPlaying">Event: 60s before + 120s after = 3min</span>
+        <span v-else-if="!isPlaying && timeInput">StartTime: {{ timeLong }}min</span>
+        <span v-else-if="isPlaying">Playing... ({{ playbackSpeed }}x speed)</span>
+        <span v-else>&nbsp;</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useObjectsStore } from '@/stores/objects';
 import { useRadarDataStore } from '@/stores/radarData';
 import { MockRadarService } from '@/utils/mockRadarData';
+import QueryPanel from './QueryPanel.vue';
 
 const objectsStore = useObjectsStore();
 const radarDataStore = useRadarDataStore();
 
-// ===== Canvas引用 =====
-const waveformCanvasRef = ref<HTMLCanvasElement | null>(null);
+// ===== 查询面板 =====
+const showQueryPanel = ref(false);
+
+const onQuerySuccess = () => {
+  console.log('✅ Query success, data loaded');
+  showQueryPanel.value = false;
+};
 
 // ===== 状态管理 =====
-const selectedDeviceId = ref('');    // fromServer: DeviceID
-const timeInput = ref('');           // fromServer: Start时间
-const timeLong = ref(5);             // fromServer: 时长（分钟）
-const useEventTime = ref(false);     // Event模式（暂时保留，兼容旧代码）
+const selectedDeviceId = ref('');    // DeviceID 查询（第1行）
+const displayRadarId = ref('');      // 展示雷达
+const timeInput = ref('');
+const useEventTime = ref(false);
+const timeLong = ref<number | string>('');
 
-const selectedFileName = ref('');    // fromFile: 文件名
-const selectedFileContent = ref(''); // fromFile: 文件内容
-const displayDeviceId = ref('');     // fromFile: Select设备
-const displayRadarId = ref('');      // 展示雷达（兼容旧代码）
+const selectedFileName = ref('');    // 文件选择（第2行）
+const selectedFileContent = ref(''); // 文件内容
 
-const isPlaying = ref(false);        // 播放状态
+const isPlaying = ref(false);        // 播放状态（第3行）
 const isPaused = ref(false);         // 暂停状态
 const playbackSpeed = ref<number>(1);
 const currentTimeDisplay = ref('00:00:00');
@@ -208,20 +301,19 @@ const totalSeconds = ref(0);
 
 const dataLoaded = ref(false);
 const loadedDataInfo = ref('');
-const darkBackground = ref(false);   // 背景颜色切换
-const showHR = ref(true);            // 显示HR曲线
-const showRR = ref(true);            // 显示RR曲线
+
+// HR/RR控制状态
+const vitalDeviceId = ref('');        // fromServer: DeviceID
+const vitalTimeInput = ref('');       // fromServer: Start时间
+const vitalTimeLong = ref<number | string>('');         // fromServer: 时长
+const vitalFileName = ref('');        // fromFile: 文件名
+const vitalFileContent = ref('');     // fromFile: 文件内容
+const vitalSelectDevice = ref('');    // fromFile: Select设备
+const darkBackground = ref(true);     // 背景色（默认黑色）
 
 // 播放控制
 let playbackIntervalId: number | null = null;
 let mockService: MockRadarService | null = null;
-
-// 波形数据缓存
-let vitalDataCache: Array<{
-  timestamp: number;
-  heartRate: number | null;
-  breathing: number | null;
-}> = [];
 
 // ===== 计算属性 =====
 // 本 Canvas 中的雷达列表（用于展示）
@@ -229,35 +321,38 @@ const canvasRadars = computed(() => {
   return objectsStore.objects.filter(obj => obj.typeName === 'Radar');
 });
 
-// 本 Canvas 中的设备信息（包括Radar和Sleeppad）
+// 本 Canvas 中的设备信息（用于 DeviceID 提示）
 const canvasDevices = computed(() => {
-  return objectsStore.objects
-    .filter(obj => obj.typeName === 'Radar' || obj.typeName === 'Sleeppad')
-    .map(obj => ({
-      deviceId: obj.device?.iot?.deviceId || obj.id,
-      name: obj.name || obj.typeName,
-      type: obj.typeName
-    }));
+  return canvasRadars.value.map(r => ({
+    deviceId: r.device?.iot?.deviceId || r.id,
+    name: r.name,
+    radarId: r.id  // Canvas 内部ID
+  }));
 });
 
-// fromServer: Load 按钮可用
-const canLoadServer = computed(() => {
-  return selectedDeviceId.value && timeInput.value && timeLong.value;
+// PlayBack 按钮是否可用（第1行）
+const canPlayBack = computed(() => {
+  if (!selectedDeviceId.value) return false;
+  if (!timeInput.value) return false;
+  return true;
 });
 
-// fromServer: RealTime 按钮可用
-const canRealTimeServer = computed(() => {
-  return selectedDeviceId.value;
+// PlayFile 按钮是否可用（第2行）
+const canPlayFile = computed(() => {
+  return !!selectedFileName.value;
 });
 
-// fromFile: Load 按钮可用
-const canLoadFile = computed(() => {
-  return selectedFileName.value && selectedFileContent.value;
+// HR/RR 相关计算属性
+const canLoadVitalServer = computed(() => {
+  return vitalDeviceId.value && vitalTimeInput.value && vitalTimeLong.value;
 });
 
-// fromFile: RealTime 按钮可用
-const canRealTimeFile = computed(() => {
-  return selectedFileName.value && selectedFileContent.value;
+const canLoadVitalFile = computed(() => {
+  return vitalFileName.value && vitalFileContent.value;
+});
+
+const canRealTimeVital = computed(() => {
+  return vitalFileName.value && vitalFileContent.value;
 });
 
 // 已播放分钟数
@@ -316,55 +411,139 @@ const handleFromFile = () => {
 };
 
 // Row 1: PlayBack (query from server)
-// ===== Row 1: fromServer =====
-const handleLoadServer = () => {
-  console.log('📡 Load from Server: Historical data');
-  startPlayback('server');
+const handlePlayBack = () => {
+  console.log('🎬 PlayBack: Query historical data from server');
+  startPlayback('backend');
 };
 
-const handleRealTimeServer = () => {
-  console.log('🔴 RealTime from Server');
-  // TODO: 实现实时模式
-  alert('RealTime mode: Coming soon');
-};
-
-// ===== Row 2: fromFile =====
-const handleLoadFile = () => {
-  console.log('📂 Load from File: Historical data');
+// Row 2: PlayFile (play from selected file)
+const handlePlayFile = () => {
+  console.log('📂 PlayFile: Play from file');
   startPlayback('file');
 };
 
-const handleRealTimeFile = () => {
-  console.log('🔴 RealTime from File');
-  // TODO: 实现实时模式
-  alert('RealTime mode: Coming soon');
-};
-
-// ===== Demo模式（用于测试） =====
-const handleDemo = () => {
-  console.log('🎲 Demo mode');
+// Row 2: PlayDemo (demo mode)
+const handlePlayDemo = () => {
+  console.log('🎲 PlayDemo: Demo mode');
+  
+  // Set demo parameters
+  selectedDeviceId.value = canvasDevices.value[0]?.deviceId || 'DEMO_UUID';
+  displayRadarId.value = canvasRadars.value[0]?.id || '';
+  
+  const now = Math.floor(Date.now() / 1000);
+  const demoStart = now - 300;
+  timeInput.value = formatTimestamp(demoStart);
+  
+  useEventTime.value = false;
+  timeLong.value = 2;
+  playbackSpeed.value = 1;
+  
+  // Start playback
   startPlayback('demo');
 };
 
+// ===== HR/RR控制处理函数 =====
+const handleLoadVitalServer = () => {
+  console.log('📡 Load HR/RR from Server:', {
+    deviceId: vitalDeviceId.value,
+    start: vitalTimeInput.value,
+    duration: vitalTimeLong.value
+  });
+  alert('Server mode: Not implemented yet');
+};
+
+const handleVitalFromFile = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      vitalFileName.value = file.name;
+      vitalFileContent.value = text;
+      console.log(`✅ Vital file selected: ${file.name}`);
+    } catch (error) {
+      console.error('❌ Vital file load failed:', error);
+      vitalFileName.value = '';
+      vitalFileContent.value = '';
+      alert('File load failed');
+    }
+  };
+  
+  input.click();
+};
+
+const handleLoadVitalFile = () => {
+  console.log('📂 Load HR/RR from File:', vitalFileName.value);
+  alert('File Load mode: Not implemented yet');
+};
+
+const handleRealTimeVital = () => {
+  console.log('🔴 RealTime HR/RR');
+  alert('RealTime mode: Not implemented yet');
+};
+
+// 限制Track时长输入范围（2-30分钟）
+const limitTimeLong = () => {
+  if (!timeLong.value) {
+    timeLong.value = 2;  // 默认2分钟
+    return;
+  }
+  const num = parseInt(String(timeLong.value));
+  if (isNaN(num) || num < 2) {
+    timeLong.value = 2;
+  } else if (num > 30) {
+    timeLong.value = 30;
+  } else {
+    timeLong.value = num;
+  }
+};
+
+// 限制Vital时长输入范围（5-30分钟）
+const limitVitalTimeLong = () => {
+  if (!vitalTimeLong.value) {
+    vitalTimeLong.value = 5;  // 默认5分钟
+    return;
+  }
+  const num = parseInt(String(vitalTimeLong.value));
+  if (isNaN(num) || num < 5) {
+    vitalTimeLong.value = 5;
+  } else if (num > 30) {
+    vitalTimeLong.value = 30;
+  } else {
+    vitalTimeLong.value = num;
+  }
+};
+
 // 开始播放（统一入口）
-const startPlayback = async (source: 'server' | 'file' | 'demo') => {
+const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
   try {
-    console.log(`\n🎬 开始加载数据 (${source})`);
+    // 验证展示雷达
+    if (!displayRadarId.value && canvasRadars.value.length > 0) {
+      displayRadarId.value = canvasRadars.value[0].id;
+      console.log(`🎯 自动选择展示雷达: ${canvasRadars.value[0].name}`);
+    }
+    
+    const displayRadar = canvasRadars.value.find(r => r.id === displayRadarId.value);
+    
+    console.log(`\n🎬 开始回放 (${source})`);
+    console.log(`🎨 展示雷达: ${displayRadar?.name || '未选择'}`);
     
     // 启用回放模式（禁用时间过滤）
     radarDataStore.setPlaybackMode(true);
     
     let historicalData: any[] = [];
     
-    if (source === 'server') {
-      // 从服务器查询历史数据
-      console.log('📡 从服务器查询:', {
-        deviceId: selectedDeviceId.value,
-        start: timeInput.value,
-        duration: timeLong.value
-      });
+    if (source === 'backend') {
+      // 从服务器查询
+      const queryParams = calculateTimeRange();
+      console.log('📡 查询参数:', queryParams);
       
-      alert('Server mode: Not implemented yet.\nPlease use File or Demo for testing.');
+      alert('Backend mode: Not implemented yet. Please use Demo mode.');
       radarDataStore.setPlaybackMode(false);
       return;
       
@@ -409,8 +588,8 @@ const startPlayback = async (source: 'server' | 'file' | 'demo') => {
         objectsStore.objects  // 传递 Canvas 对象数组
       );
       
-      // 获取仿真历史数据（生成120秒=2分钟的数据）
-      const demoSeconds = 120;
+      // 获取仿真历史数据（生成240秒=4分钟的数据）
+      const demoSeconds = 240;
       historicalData = mockService.getHistoricalData(demoSeconds);
       totalSeconds.value = historicalData.length;
       
@@ -437,31 +616,6 @@ const startPlayback = async (source: 'server' | 'file' | 'demo') => {
     currentTimeDisplay.value = formatSecondsToTime(historicalData[0].timestamp);
     
     console.log('✅ 开始播放历史数据...');
-    
-    // 初始化Canvas
-    initCanvases();
-    
-    // 清空波形数据缓存并加载新数据
-    vitalDataCache = [];
-    
-    // 一次性提取所有历史数据中的生理数据
-    historicalData.forEach(frame => {
-      if (frame.persons && frame.persons.length > 0) {
-        const person = frame.persons[0];
-        if (person.heartRate || person.breathRate) {
-          vitalDataCache.push({
-            timestamp: frame.timestamp,
-            heartRate: person.heartRate || null,
-            breathing: person.breathRate || null
-          });
-        }
-      }
-    });
-    
-    console.log(`📊 生理数据提取完成: ${vitalDataCache.length} 个数据点`);
-    
-    // 立即绘制完整波形
-    drawWaveform();
     
     // 等待200ms确保姿态图标预加载完成
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -632,9 +786,6 @@ const handleStop = () => {
   // 清除所有人员和轨迹数据
   radarDataStore.clearAllData();
   
-  // 清空波形数据缓存
-  vitalDataCache = [];
-  
   // 清理 Mock Service
   mockService = null;
   
@@ -645,12 +796,6 @@ const handleStop = () => {
   currentTimeDisplay.value = '00:00:00';
   dataLoaded.value = false;
   loadedDataInfo.value = '';
-  
-  // 清空Canvas
-  if (waveformCanvasRef.value) {
-    const ctx = waveformCanvasRef.value.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, waveformCanvasRef.value.width, waveformCanvasRef.value.height);
-  }
 };
 
 // 计算查询参数（第1层：数据查询）
@@ -669,7 +814,8 @@ const calculateTimeRange = () => {
     };
   } else {
     // StartTime: 从指定时间开始
-    const durationSeconds = timeLong.value * 60;
+    const durationMinutes = timeLong.value || 2;  // 默认2分钟
+    const durationSeconds = durationMinutes * 60;
     return {
       deviceId: selectedDeviceId.value,   // ← 第1层：数据来源的 UUID
       start: timestamp,
@@ -708,231 +854,6 @@ const formatTimestamp = (timestamp: number): string => {
   return `${year}${month}${day}${hours}:${minutes}:${seconds}`;
 };
 
-// ===== 波形绘制 =====
-const CANVAS_WIDTH = 560;
-const CANVAS_HEIGHT = 240;
-const Y_MIN = 0;
-const Y_MAX = 150;
-const WINDOW_SECONDS = 300; // 实时模式：300秒滑动窗口
-
-// 初始化Canvas
-onMounted(() => {
-  initCanvases();
-});
-
-
-const initCanvases = () => {
-  if (waveformCanvasRef.value) {
-    waveformCanvasRef.value.width = CANVAS_WIDTH;
-    waveformCanvasRef.value.height = CANVAS_HEIGHT * 2; // 合并后高度加倍
-  }
-};
-
-// 监听背景色切换，重绘波形
-watch(darkBackground, () => {
-  if (dataLoaded.value) {
-    drawWaveform();
-  }
-});
-
-// 绘制波形（单个Canvas，同时显示HR和RR）
-const drawWaveform = () => {
-  if (!waveformCanvasRef.value) return;
-  if (!dataLoaded.value) return;
-  
-  const data = vitalDataCache;
-  if (data.length === 0) return;
-  
-  const canvas = waveformCanvasRef.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  
-  const width = canvas.width;
-  const height = canvas.height;
-  const isDark = darkBackground.value;
-  
-  // 清空画布
-  ctx.fillStyle = isDark ? '#000000' : '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-  
-  // HR阈值
-  const hrThresholds = { normal: [55, 95], l2Low: [45, 54], l2High: [96, 115] };
-  // RR阈值
-  const rrThresholds = { normal: [10, 23], l2Low: [8, 9], l2High: [24, 26] };
-  
-  // 1. 绘制Y轴刻度和网格（每10一标）
-  ctx.fillStyle = isDark ? '#666' : '#999';
-  ctx.font = '10px Arial';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  
-  for (let val = 0; val <= 150; val += 10) {
-    const y = valueToY(val, height);
-    ctx.fillText(val.toString(), 35, y);
-    
-    // 网格线
-    ctx.strokeStyle = isDark ? '#333' : '#e8e8e8';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(40, y);
-    ctx.lineTo(width - 40, y);
-    ctx.stroke();
-  }
-  
-  // 2. 绘制辅助线
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 5]);
-  ctx.font = '9px Arial';
-  ctx.textAlign = 'left';
-  
-  // 黄色虚线：10, 23, 55, 95
-  ctx.strokeStyle = '#ffc000';
-  [10, 23, 55, 95].forEach(val => {
-    const y = valueToY(val, height);
-    ctx.beginPath();
-    ctx.moveTo(40, y);
-    ctx.lineTo(width - 40, y);
-    ctx.stroke();
-    
-    // 右侧标注
-    ctx.fillStyle = '#ffc000';
-    ctx.fillText(val.toString(), width - 35, y - 2);
-  });
-  
-  // 红色虚线：8, 26, 45, 115
-  ctx.strokeStyle = '#ff4d4f';
-  [8, 26, 45, 115].forEach(val => {
-    const y = valueToY(val, height);
-    ctx.beginPath();
-    ctx.moveTo(40, y);
-    ctx.lineTo(width - 40, y);
-    ctx.stroke();
-    
-    // 右侧标注
-    ctx.fillStyle = '#ff4d4f';
-    ctx.fillText(val.toString(), width - 35, y - 2);
-  });
-  
-  ctx.setLineDash([]); // 恢复实线
-  
-  // 3. 绘制HR波形
-  if (showHR.value && data.length >= 2) {
-    const xStep = (width - 40) / data.length;
-    
-    for (let i = 1; i < data.length; i++) {
-      const prev = data[i - 1];
-      const curr = data[i];
-      
-      const prevValue = prev.heartRate;
-      const currValue = curr.heartRate;
-      
-      if (prevValue === undefined || currValue === undefined || 
-          prevValue === null || currValue === null ||
-          prevValue === 0 || currValue === 0 ||
-          prevValue === -255 || currValue === -255) {
-        continue;
-      }
-      
-      const x1 = (i - 1) * xStep + 40;
-      const y1 = valueToY(prevValue, height);
-      const x2 = i * xStep + 40;
-      const y2 = valueToY(currValue, height);
-      
-      // HR颜色
-      const color = getHRColor(currValue, hrThresholds, isDark);
-      
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
-  }
-  
-  // 4. 绘制RR波形
-  if (showRR.value && data.length >= 2) {
-    const xStep = (width - 40) / data.length;
-    
-    for (let i = 1; i < data.length; i++) {
-      const prev = data[i - 1];
-      const curr = data[i];
-      
-      const prevValue = prev.breathing;
-      const currValue = curr.breathing;
-      
-      if (prevValue === undefined || currValue === undefined || 
-          prevValue === null || currValue === null ||
-          prevValue === 0 || currValue === 0 ||
-          prevValue === -255 || currValue === -255) {
-        continue;
-      }
-      
-      const x1 = (i - 1) * xStep + 40;
-      const y1 = valueToY(prevValue, height);
-      const x2 = i * xStep + 40;
-      const y2 = valueToY(currValue, height);
-      
-      // RR颜色
-      const color = getRRColor(currValue, rrThresholds);
-      
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
-  }
-};
-
-// 数值转Y坐标
-const valueToY = (value: number, height: number): number => {
-  const ratio = (Y_MAX - value) / (Y_MAX - Y_MIN);
-  return ratio * height;
-};
-
-// 获取HR颜色
-const getHRColor = (
-  value: number,
-  thresholds: { normal: [number, number], l2Low: [number, number], l2High: [number, number] },
-  isDark: boolean
-): string => {
-  // Normal区域：[55-95]
-  if (value >= thresholds.normal[0] && value <= thresholds.normal[1]) {
-    return isDark ? '#ffffff' : '#000000';  // 白/黑
-  }
-  
-  // L2区域：[45-54] 或 [96-115]
-  if ((value >= thresholds.l2Low[0] && value <= thresholds.l2Low[1]) ||
-      (value >= thresholds.l2High[0] && value <= thresholds.l2High[1])) {
-    return '#ffc000';  // 黄色
-  }
-  
-  // L1区域：[0-44] 或 [116-∞]
-  return '#ff4d4f';  // 红色
-};
-
-// 获取RR颜色
-const getRRColor = (
-  value: number,
-  thresholds: { normal: [number, number], l2Low: [number, number], l2High: [number, number] }
-): string => {
-  // Normal区域：[10-23]
-  if (value >= thresholds.normal[0] && value <= thresholds.normal[1]) {
-    return '#00b050';  // 绿色
-  }
-  
-  // L2区域：[8-9] 或 [24-26]
-  if ((value >= thresholds.l2Low[0] && value <= thresholds.l2Low[1]) ||
-      (value >= thresholds.l2High[0] && value <= thresholds.l2High[1])) {
-    return '#ffc000';  // 黄色
-  }
-  
-  // L1区域：[0-7] 或 [27-∞]
-  return '#ff4d4f';  // 红色
-};
-
 </script>
 
 <style scoped>
@@ -946,6 +867,9 @@ const getRRColor = (
 }
 
 .wave-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 10px 15px;
   background-color: #f5f5f5;
   border-bottom: 1px solid #e0e0e0;
@@ -958,11 +882,72 @@ const getRRColor = (
   color: #333;
 }
 
+.wave-header .query-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: #1890ff;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wave-header .query-btn:hover {
+  background: #40a9ff;
+  transform: scale(1.08);
+}
+
+.wave-header .query-btn:active {
+  transform: scale(0.92);
+}
+
 /* 工具栏 */
 .track-toolbar {
   padding: 10px 15px;
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
+}
+
+/* HR/RR工具栏 */
+.vital-toolbar {
+  padding: 8px 15px;
+  background-color: #f0f7ff;
+  border-bottom: 1px solid #d0e7ff;
+}
+
+.vital-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.vital-row:last-child {
+  margin-bottom: 0;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1890ff;
+  padding: 2px 8px;
+  background: rgba(24, 144, 255, 0.1);
+  border-radius: 3px;
+}
+
+.section-label-end {
+  margin-left: auto;  /* 推到右侧 */
+}
+
+.realtime-btn {
+  margin-left: 20px;  /* Load和RealTime之间20px间距 */
 }
 
 .control-row {
@@ -1016,13 +1001,12 @@ const getRRColor = (
   font-family: system-ui;
 }
 
-.display-select,
-.device-select {
+.display-select {
   padding: 4px 6px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 90px;
+  width: 75px;
   background-color: white;
 }
 
@@ -1047,12 +1031,16 @@ const getRRColor = (
   background-color: white;
 }
 
+.time-input-wide {
+  width: 140px;  /* Start时间输入框 */
+}
+
 .time-long-input {
   padding: 5px 10px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 45px;
+  width: 50px;  /* 时长输入框 */
   text-align: center;
   background-color: white;
 }
@@ -1144,18 +1132,6 @@ const getRRColor = (
   background-color: #f5f5f5;
   border-color: #d9d9d9;
   color: #bfbfbf;
-}
-
-.action-btn.demo {
-  background-color: #722ed1;
-  border-color: #722ed1;
-  color: white;
-  font-weight: 500;
-}
-
-.action-btn.demo:hover {
-  background-color: #9254de;
-  border-color: #9254de;
 }
 
 /* File display box */
@@ -1344,45 +1320,113 @@ const getRRColor = (
   font-size: 13px;
 }
 
-/* 波形显示容器 */
-.waveform-display {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-}
-
-.waveform-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 8px 12px;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
+/* HR/RR专用样式 */
+.device-input-sm {
+  padding: 4px 8px;
+  border: 1px solid #d9d9d9;
   border-radius: 4px;
-  margin-bottom: 10px;
+  font-size: 11px;
+  width: 95px;
+  background-color: white;
 }
 
-.waveform-option {
+.file-display-box-sm {
+  flex: 1;
+  max-width: 160px;
+  padding: 4px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 11px;
+  background-color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-display-box-sm.has-file {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.file-display-box-sm .placeholder {
+  color: #ccc;
+  font-style: italic;
+  font-size: 10px;
+}
+
+.device-select-sm {
+  padding: 4px 6px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 11px;
+  width: 90px;
+  background-color: white;
+}
+
+.bg-toggle {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 500;
+  gap: 4px;
+  font-size: 11px;
   color: #333;
   cursor: pointer;
   user-select: none;
-}
-
-.waveform-option input[type="checkbox"] {
-  cursor: pointer;
-}
-
-.waveform-canvas {
-  flex: 1;
-  width: 100%;
+  margin-left: 4px;
+  padding: 3px 8px;
   border: 1px solid #d9d9d9;
-  border-radius: 2px;
+  border-radius: 4px;
+  background: white;
+}
+
+.bg-toggle input[type="checkbox"] {
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.bg-toggle .bg-text-fixed {
+  display: inline-block;
+  width: 42px;  /* 固定宽度：White=5字符，Black=5字符 */
+  text-align: left;
+  font-weight: 500;
+  margin-right: 0;
+}
+
+.style-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;  /* 整体右移2px */
+}
+
+/* 状态显示区域 */
+.status-display {
+  padding: 8px 15px;
+  background-color: #f9f9f9;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+}
+
+.status-line {
+  padding: 3px 0;
+  color: #666;
+  min-height: 18px;
+}
+
+.status-line span {
+  color: #333;
+}
+
+.waveform-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fafafa;
+  min-height: 200px;
+}
+
+.waveform-content .placeholder {
+  text-align: center;
+  color: #999;
 }
 </style>

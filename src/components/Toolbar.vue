@@ -268,17 +268,17 @@
           <span>InstallMod:</span>
           <div class="button-group">
             <button 
-              class="mode-btn" 
+              class="mode-btn mode-btn-large" 
               :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'ceiling' }"
               @click="updateDeviceProp('installModel', 'ceiling')"
             >Ceiling</button>
             <button 
-              class="mode-btn" 
+              class="mode-btn mode-btn-large" 
               :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'wall' }"
               @click="updateDeviceProp('installModel', 'wall')"
             >Wall</button>
             <button 
-              class="mode-btn" 
+              class="mode-btn mode-btn-large" 
               :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'corn' }"
               @click="updateDeviceProp('installModel', 'corn')"
             >Corn</button>
@@ -342,7 +342,7 @@
               :checked="radarShowBoundary"
               @change="updateRadarShowBoundary(($event.target as HTMLInputElement).checked)"
             />
-            <span>Boundary</span>
+            <span class="label-large">Bound</span>
           </label>
         </div>
         <div class="prop-row">
@@ -372,7 +372,7 @@
               :checked="radarShowSignal"
               @change="updateRadarShowSignal(($event.target as HTMLInputElement).checked)"
             />
-            <span>Signal</span>
+            <span class="label-large">Signal</span>
           </label>
         </div>
         
@@ -453,20 +453,15 @@
           </label>
         </div>
         <div class="coordinates">
-          <div class="coord-item">
+          <div class="coord-item coord-x-fixed">
             <span>X:</span>
-            <span class="coord-value">{{ objCoordinates.x }}</span>
+            <span class="coord-value">{{ formatCoord(objCoordinates.x) }}</span>
           </div>
-          <div class="coord-item">
+          <div class="coord-item coord-y-fixed">
             <span>Y:</span>
-            <span class="coord-value">{{ objCoordinates.y }}</span>
+            <span class="coord-value">{{ formatCoord(objCoordinates.y) }}</span>
           </div>
         </div>
-        <button 
-          class="shift-btn" 
-          @click="shiftAllObjectsLeft"
-          title="将所有对象向左移动10px"
-        >←10px</button>
       </div>
 
       <div class="direction-rotation-row">
@@ -1197,6 +1192,12 @@ const updateDeviceProp = (prop: string, value: any) => {
   }
   
   console.log(`🔧 更新设备属性 ${prop}:`, value);
+};
+
+// 格式化坐标，固定宽度显示
+const formatCoord = (value: number): string => {
+  const str = String(Math.round(value));
+  return str.padStart(4, '\u00A0');  // 使用non-breaking space固定宽度
 };
 
 // 对象坐标
@@ -2771,10 +2772,14 @@ const toggleSettings = () => {
       }
 
       &.prop-row-name {
-        gap: 16px; // 增加 Name 输入框与 Rotation 之间的间距（原来默认是6px，增加10px = 16px）
+        gap: 8px; // 16px → 8px，减小Name与Rotation之间的间距
         
         .prop-group-reflect {
           flex-shrink: 0;
+        }
+        
+        .prop-group {
+          flex-shrink: 0;  // Rotation输入框不压缩，与Height对齐
         }
       }
       
@@ -2875,7 +2880,16 @@ const toggleSettings = () => {
             color: white;
             border-color: #1890ff;
           }
+          
+          &.mode-btn-large {
+            font-size: 11px;  /* 9px → 11px */
+          }
         }
+      }
+      
+      .label-large {
+        font-size: 13px !important;  /* 放大字体 */
+        font-weight: 600;
       }
 
       .prop-group-inline {
@@ -2996,13 +3010,15 @@ const toggleSettings = () => {
 
       .coordinates {
         display: flex;
-        gap: 15px;
+        gap: 4px;  /* 8px → 4px */
         flex-shrink: 0;
+        margin-left: -6px;  /* -4px → -6px，整体左移 */
 
         .coord-item {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 2px;
+          width: 48px;  /* 50px → 48px */
 
           span {
             font-size: 12px;
@@ -3040,7 +3056,7 @@ const toggleSettings = () => {
     .direction-rotation-row {
       display: flex;
       justify-content: center;
-      gap: 40px;
+      gap: 30px;  /* 40px → 30px，减小中间间距 */
       align-items: center;
 
       .direction-btns {
@@ -3048,6 +3064,8 @@ const toggleSettings = () => {
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        margin-left: 10px;  /* 增加左边距10px */
+        margin-right: 6px;  /* 整体右移6px */
 
         .middle-row {
           display: flex;

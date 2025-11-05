@@ -8,6 +8,7 @@ export { useRadarDataStore } from './radarData';
 export { useWaveformStore } from './waveform';
 
 // 导出类型
-export type { RadarTarget, PersonData } from './radarData';
+export type { RadarTarget } from './radarData';
 export type { WaveformDataPoint, WaveformChannel } from './waveform';
+export type { PersonData } from '@/utils/types';
 

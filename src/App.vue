@@ -1,17 +1,5 @@
 <template>
   <div class="app-container">
-    <!-- 查询按钮（悬浮） -->
-    <button class="query-btn" @click="showQueryPanel = true" title="查询历史记录">
-      🔍
-    </button>
-    
-    <!-- 查询面板 -->
-    <QueryPanel 
-      :visible="showQueryPanel" 
-      @close="showQueryPanel = false"
-      @success="onQuerySuccess"
-    />
-    
     <div class="radar-system">
       <!-- 左侧：雷达画布 -->
       <RadarCanvas />
@@ -46,7 +34,6 @@ import { ref, onMounted, provide } from 'vue';
 import RadarCanvas from './components/RadarCanvas.vue';
 import WaveMonitor from './components/WaveMonitor.vue';
 import Toolbar from './components/Toolbar.vue';
-import QueryPanel from './components/QueryPanel.vue';
 import { useCanvasStore } from '@/stores/canvas';
 import { useObjectsStore } from '@/stores/objects';
 import { useRadarDataStore } from '@/stores/radarData';
@@ -62,7 +49,6 @@ const radarDataStore = useRadarDataStore();
 
 const isWaveformOpen = ref(true);
 const isToolbarOpen = ref(true);
-const showQueryPanel = ref(false);
 
 const toggleWaveform = () => {
   isWaveformOpen.value = !isWaveformOpen.value;
@@ -70,10 +56,6 @@ const toggleWaveform = () => {
 
 const toggleToolbar = () => {
   isToolbarOpen.value = !isToolbarOpen.value;
-};
-
-const onQuerySuccess = () => {
-  console.log('✅ 查询成功，开始播放历史数据');
 };
 
 // 向子组件提供面板控制
@@ -213,34 +195,4 @@ onMounted(async () => {
   width: 0;
 }
 
-/* 查询按钮 */
-.query-btn {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-  background: #1890ff;
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s;
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.query-btn:hover {
-  background: #40a9ff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transform: scale(1.05);
-}
-
-.query-btn:active {
-  transform: scale(0.95);
-}
 </style>

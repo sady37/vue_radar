@@ -16,7 +16,8 @@
           <button @click="adjustZoom(0.1)" class="zoom-btn">+</button>
         </div>
         <div class="mouse-position">
-          X: {{ mouseX }}, Y: {{ mouseY }}
+          <span class="coord-x">X:{{ formatCoord(mouseX) }}</span>
+          <span class="coord-y">Y:{{ formatCoord(mouseY) }}</span>
         </div>
         <div class="panel-controls">
           <button 
@@ -97,6 +98,12 @@ const scale = ref(1.0);
 const mouseX = ref(0);
 const mouseY = ref(0);
 const showVital = ref(true);  // 默认开启
+
+// 格式化坐标，固定宽度显示
+const formatCoord = (value: number): string => {
+  const str = String(Math.round(value));
+  return str.padStart(4, '\u00A0');  // 使用non-breaking space固定宽度
+};
 
 // 注入面板控制
 const panelControls = inject<{
@@ -1307,7 +1314,7 @@ const updateObjectByControlPoint = (obj: BaseObject, controlPointIndex: number, 
 };
 
 // 双击画布：取消所有选中
-const handleCanvasDblClick = (event: MouseEvent) => {
+const handleCanvasDblClick = (_event: MouseEvent) => {
   // 取消选中
   objectsStore.selectObject(null);
   
@@ -2026,9 +2033,10 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
   const radarHeight = (radar.geometry.data as any).z || 280; // 雷达高度（cm）
   
   // 雷达位置（逻辑坐标）
+  const radarData = radar.geometry.data as any;
   const radarPos = {
-    x: radar.geometry.data.x,
-    y: radar.geometry.data.y
+    x: radarData.x,
+    y: radarData.y
   };
   
   ctx.save();
@@ -2181,13 +2189,14 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   // 调试vital数据（每30秒输出一次）
   const now = Date.now();
   const logKey = 'vitalPanel';
-  if (!window[`_lastLog_${logKey}`] || now - window[`_lastLog_${logKey}`] > 30000) {
+  const win = window as any;
+  if (!win[`_lastLog_${logKey}`] || now - win[`_lastLog_${logKey}`] > 30000) {
     console.log(`💊 Vital面板:`, {
       heartRate: vital.heartRate,
       breathing: vital.breathing,
       sleepState: vital.sleepState
     });
-    window[`_lastLog_${logKey}`] = now;
+    win[`_lastLog_${logKey}`] = now;
   }
   
   ctx.save();
@@ -2201,6 +2210,8 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
     y: number, 
     value: string
   ) => {
+    if (!iconConfig.iconPath) return;
+    
     const icon = new Image();
     icon.src = iconConfig.iconPath;
     icon.onload = () => {
@@ -2441,15 +2452,24 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 15px;
-  flex: 1;
+  gap: 10px;  /* 减小间距 */
+  margin-left: auto;  /* 整体右对齐 */
 }
 
 .mouse-position {
   font-size: 12px;
   color: #666;
   font-family: 'Courier New', monospace;
-  min-width: 100px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.coord-x,
+.coord-y {
+  display: inline-block;
+  width: 50px;  /* 固定宽度：X:-100 或 Y:-100 */
+  text-align: left;
 }
 
 .canvas-container {

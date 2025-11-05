@@ -39,6 +39,7 @@ export interface Rectangle {
 
 export interface Polygon {
   vertices: Point[];  // 顶点数组
+  center?: Point;     // 中心点（可选，用于渲染和交互）
 }
 
 // ================ 统一的几何定义 ================
@@ -512,7 +513,7 @@ export const POSTURE_LABELS: Record<number, string> = {
 
 // ================ 图标配置 ================
 export interface PostureIconConfig {
-  type: 'svg' | 'default';
+  type: 'svg' | 'default' | 'png';
   iconPath?: string;
   size: number;
   showLabel: boolean;

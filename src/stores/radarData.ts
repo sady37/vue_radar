@@ -239,7 +239,7 @@ export const useRadarDataStore = defineStore('radarData', {
         trajectory.push({
           ...person.position,
           timestamp: Date.now()  // 添加时间戳用于5秒过期
-        });
+        } as any);
         
         // 限制轨迹长度
         if (trajectory.length > this.maxTrajectoryLength) {
