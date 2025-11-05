@@ -791,7 +791,25 @@ private behaviorSystem = {
           // 移动位置（50-200cm）
           currentRadarPos = getGroundRadarPosition(currentRadarPos);
           currentPosture = scenario.posture;
-          currentVital = null;
+          
+          // 床下活动时的生理数据
+          if (currentPosture === PersonPosture.FallConfirm) {
+            // 跌倒时：心率升高（应激反应）
+            currentVital = {
+              type: 3,
+              heartRate: Math.floor(Math.random() * (120 - 105) + 105),  // 105-120 (L1级)
+              breathing: Math.floor(Math.random() * (28 - 24) + 24),     // 24-28 (L2-L1)
+              sleepState: 3
+            };
+          } else {
+            // 正常活动：清醒状态
+            currentVital = {
+              type: 3,
+              heartRate: Math.floor(Math.random() * (95 - 70) + 70),  // 70-95
+              breathing: Math.floor(Math.random() * (20 - 14) + 14),  // 14-20
+              sleepState: 3
+            };
+          }
           
           console.log(`  🚶 第 ${i} 秒 [床下]: 姿态=${currentPosture}, 雷达坐标=(H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)}) (5秒)`);
         }

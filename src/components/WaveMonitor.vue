@@ -147,22 +147,45 @@
         <p v-if="useEventTime" class="hint">Event: 60s before + 120s after = 3min</p>
         <p v-else class="hint">StartTime: {{ timeLong }}min</p>
       </div>
-      <div v-else class="data-info">
-        <p>Data loaded: {{ loadedDataInfo }}</p>
-        <p v-if="isPlaying">Playing... ({{ playbackSpeed }}x)</p>
+      <div v-else class="waveform-display">
+        <!-- Waveform Controls -->
+        <div class="waveform-controls">
+          <label class="waveform-option">
+            <input type="checkbox" v-model="showHR" @change="drawWaveform" />
+            <span>HR</span>
+          </label>
+          <label class="waveform-option">
+            <input type="checkbox" v-model="showRR" @change="drawWaveform" />
+            <span>RR</span>
+          </label>
+          <label class="waveform-option">
+            <input type="checkbox" v-model="darkBackground" @change="drawWaveform" />
+            <span>Dark</span>
+          </label>
+        </div>
+        
+        <!-- Single Canvas for both HR and RR -->
+        <canvas 
+          ref="waveformCanvasRef" 
+          class="waveform-canvas"
+          :style="{ backgroundColor: darkBackground ? '#000000' : '#ffffff' }"
+        ></canvas>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useObjectsStore } from '@/stores/objects';
 import { useRadarDataStore } from '@/stores/radarData';
 import { MockRadarService } from '@/utils/mockRadarData';
 
 const objectsStore = useObjectsStore();
 const radarDataStore = useRadarDataStore();
+
+// ===== Canvas引用 =====
+const waveformCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 // ===== 状态管理 =====
 const selectedDeviceId = ref('');    // DeviceID 查询（第1行）
@@ -183,10 +206,20 @@ const totalSeconds = ref(0);
 
 const dataLoaded = ref(false);
 const loadedDataInfo = ref('');
+const darkBackground = ref(false);   // 背景颜色切换
+const showHR = ref(true);            // 显示HR曲线
+const showRR = ref(true);            // 显示RR曲线
 
 // 播放控制
 let playbackIntervalId: number | null = null;
 let mockService: MockRadarService | null = null;
+
+// 波形数据缓存
+let vitalDataCache: Array<{
+  timestamp: number;
+  heartRate: number | null;
+  breathing: number | null;
+}> = [];
 
 // ===== 计算属性 =====
 // 本 Canvas 中的雷达列表（用于展示）
@@ -400,6 +433,31 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     
     console.log('✅ 开始播放历史数据...');
     
+    // 初始化Canvas
+    initCanvases();
+    
+    // 清空波形数据缓存并加载新数据
+    vitalDataCache = [];
+    
+    // 一次性提取所有历史数据中的生理数据
+    historicalData.forEach(frame => {
+      if (frame.persons && frame.persons.length > 0) {
+        const person = frame.persons[0];
+        if (person.heartRate || person.breathRate) {
+          vitalDataCache.push({
+            timestamp: frame.timestamp,
+            heartRate: person.heartRate || null,
+            breathing: person.breathRate || null
+          });
+        }
+      }
+    });
+    
+    console.log(`📊 生理数据提取完成: ${vitalDataCache.length} 个数据点`);
+    
+    // 立即绘制完整波形
+    drawWaveform();
+    
     // 等待200ms确保姿态图标预加载完成
     await new Promise(resolve => setTimeout(resolve, 200));
     
@@ -569,6 +627,9 @@ const handleStop = () => {
   // 清除所有人员和轨迹数据
   radarDataStore.clearAllData();
   
+  // 清空波形数据缓存
+  vitalDataCache = [];
+  
   // 清理 Mock Service
   mockService = null;
   
@@ -579,6 +640,12 @@ const handleStop = () => {
   currentTimeDisplay.value = '00:00:00';
   dataLoaded.value = false;
   loadedDataInfo.value = '';
+  
+  // 清空Canvas
+  if (waveformCanvasRef.value) {
+    const ctx = waveformCanvasRef.value.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, waveformCanvasRef.value.width, waveformCanvasRef.value.height);
+  }
 };
 
 // 计算查询参数（第1层：数据查询）
@@ -634,6 +701,233 @@ const formatTimestamp = (timestamp: number): string => {
   const seconds = String(date.getSeconds()).padStart(2, '0');
   
   return `${year}${month}${day}${hours}:${minutes}:${seconds}`;
+};
+
+// ===== 波形绘制 =====
+const CANVAS_WIDTH = 560;
+const CANVAS_HEIGHT = 240;
+const Y_MIN = 0;
+const Y_MAX = 150;
+const WINDOW_SECONDS = 300; // 实时模式：300秒滑动窗口
+
+// 初始化Canvas
+onMounted(() => {
+  initCanvases();
+});
+
+
+const initCanvases = () => {
+  if (waveformCanvasRef.value) {
+    waveformCanvasRef.value.width = CANVAS_WIDTH;
+    waveformCanvasRef.value.height = CANVAS_HEIGHT * 2; // 合并后高度加倍
+  }
+};
+
+// 监听背景色切换，重绘波形
+watch(darkBackground, () => {
+  if (dataLoaded.value) {
+    drawWaveform();
+  }
+});
+
+// 绘制波形（单个Canvas，同时显示HR和RR）
+const drawWaveform = () => {
+  if (!waveformCanvasRef.value) return;
+  if (!dataLoaded.value) return;
+  
+  const data = vitalDataCache;
+  if (data.length === 0) return;
+  
+  const canvas = waveformCanvasRef.value;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  
+  const width = canvas.width;
+  const height = canvas.height;
+  const isDark = darkBackground.value;
+  
+  // 清空画布
+  ctx.fillStyle = isDark ? '#000000' : '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  
+  // HR阈值
+  const hrThresholds = { normal: [55, 95], l2Low: [45, 54], l2High: [96, 115] };
+  // RR阈值
+  const rrThresholds = { normal: [10, 23], l2Low: [8, 9], l2High: [24, 26] };
+  
+  // 1. 绘制辅助线（合并HR和RR的边界线）
+  const allThresholds = [
+    { val: hrThresholds.normal[0], color: '#ffc000', label: 'HR55' },
+    { val: hrThresholds.normal[1], color: '#ffc000', label: 'HR95' },
+    { val: hrThresholds.l2Low[0], color: '#ff4d4f', label: 'HR45' },
+    { val: hrThresholds.l2Low[1], color: '#ff4d4f', label: 'HR54' },
+    { val: hrThresholds.l2High[0], color: '#ff4d4f', label: 'HR96' },
+    { val: hrThresholds.l2High[1], color: '#ff4d4f', label: 'HR115' },
+    { val: rrThresholds.normal[0], color: '#ffc000', label: 'RR10' },
+    { val: rrThresholds.normal[1], color: '#ffc000', label: 'RR23' },
+    { val: rrThresholds.l2Low[0], color: '#ff4d4f', label: 'RR8' },
+    { val: rrThresholds.l2Low[1], color: '#ff4d4f', label: 'RR9' },
+    { val: rrThresholds.l2High[0], color: '#ff4d4f', label: 'RR24' },
+    { val: rrThresholds.l2High[1], color: '#ff4d4f', label: 'RR26' }
+  ];
+  
+  // 绘制辅助线
+  ctx.setLineDash([5, 5]);
+  ctx.lineWidth = 1;
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'left';
+  
+  allThresholds.forEach(({ val, color, label }) => {
+    const y = valueToY(val, height);
+    
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+    
+    // 右侧标注
+    ctx.fillStyle = color;
+    ctx.fillText(label, width - 35, y - 2);
+  });
+  
+  ctx.setLineDash([]); // 恢复实线
+  
+  // 2. 绘制Y轴刻度和网格
+  ctx.fillStyle = isDark ? '#666' : '#999';
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  
+  [0, 50, 100, 150].forEach(val => {
+    const y = valueToY(val, height);
+    ctx.fillText(val.toString(), 35, y);
+    
+    // 网格线
+    ctx.strokeStyle = isDark ? '#333' : '#e8e8e8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  });
+  
+  // 3. 绘制HR波形
+  if (showHR.value && data.length >= 2) {
+    const xStep = (width - 40) / data.length;
+    
+    for (let i = 1; i < data.length; i++) {
+      const prev = data[i - 1];
+      const curr = data[i];
+      
+      const prevValue = prev.heartRate;
+      const currValue = curr.heartRate;
+      
+      if (prevValue === undefined || currValue === undefined || 
+          prevValue === null || currValue === null ||
+          prevValue === 0 || currValue === 0 ||
+          prevValue === -255 || currValue === -255) {
+        continue;
+      }
+      
+      const x1 = (i - 1) * xStep + 40;
+      const y1 = valueToY(prevValue, height);
+      const x2 = i * xStep + 40;
+      const y2 = valueToY(currValue, height);
+      
+      // HR颜色
+      const color = getHRColor(currValue, hrThresholds, isDark);
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  }
+  
+  // 4. 绘制RR波形
+  if (showRR.value && data.length >= 2) {
+    const xStep = (width - 40) / data.length;
+    
+    for (let i = 1; i < data.length; i++) {
+      const prev = data[i - 1];
+      const curr = data[i];
+      
+      const prevValue = prev.breathing;
+      const currValue = curr.breathing;
+      
+      if (prevValue === undefined || currValue === undefined || 
+          prevValue === null || currValue === null ||
+          prevValue === 0 || currValue === 0 ||
+          prevValue === -255 || currValue === -255) {
+        continue;
+      }
+      
+      const x1 = (i - 1) * xStep + 40;
+      const y1 = valueToY(prevValue, height);
+      const x2 = i * xStep + 40;
+      const y2 = valueToY(currValue, height);
+      
+      // RR颜色
+      const color = getRRColor(currValue, rrThresholds);
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  }
+};
+
+// 数值转Y坐标
+const valueToY = (value: number, height: number): number => {
+  const ratio = (Y_MAX - value) / (Y_MAX - Y_MIN);
+  return ratio * height;
+};
+
+// 获取HR颜色
+const getHRColor = (
+  value: number,
+  thresholds: { normal: [number, number], l2Low: [number, number], l2High: [number, number] },
+  isDark: boolean
+): string => {
+  // Normal区域：[55-95]
+  if (value >= thresholds.normal[0] && value <= thresholds.normal[1]) {
+    return isDark ? '#ffffff' : '#000000';  // 白/黑
+  }
+  
+  // L2区域：[45-54] 或 [96-115]
+  if ((value >= thresholds.l2Low[0] && value <= thresholds.l2Low[1]) ||
+      (value >= thresholds.l2High[0] && value <= thresholds.l2High[1])) {
+    return '#ffc000';  // 黄色
+  }
+  
+  // L1区域：[0-44] 或 [116-∞]
+  return '#ff4d4f';  // 红色
+};
+
+// 获取RR颜色
+const getRRColor = (
+  value: number,
+  thresholds: { normal: [number, number], l2Low: [number, number], l2High: [number, number] }
+): string => {
+  // Normal区域：[10-23]
+  if (value >= thresholds.normal[0] && value <= thresholds.normal[1]) {
+    return '#00b050';  // 绿色
+  }
+  
+  // L2区域：[8-9] 或 [24-26]
+  if ((value >= thresholds.l2Low[0] && value <= thresholds.l2Low[1]) ||
+      (value >= thresholds.l2High[0] && value <= thresholds.l2High[1])) {
+    return '#ffc000';  // 黄色
+  }
+  
+  // L1区域：[0-7] 或 [27-∞]
+  return '#ff4d4f';  // 红色
 };
 
 </script>
@@ -1032,5 +1326,47 @@ const formatTimestamp = (timestamp: number): string => {
 .data-info p {
   margin: 6px 0;
   font-size: 13px;
+}
+
+/* 波形显示容器 */
+.waveform-display {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.waveform-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.waveform-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+}
+
+.waveform-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.waveform-canvas {
+  flex: 1;
+  width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 2px;
 }
 </style>
