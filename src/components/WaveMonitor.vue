@@ -6,7 +6,7 @@
     
     <!-- Toolbar -->
     <div class="track-toolbar">
-      <!-- Row 1: DeviceID query parameters + PlayBack -->
+      <!-- Row 1: fromServer -->
       <div class="control-row">
         <label class="row-label">fromServer:</label>
         <input 
@@ -14,20 +14,14 @@
           v-model="selectedDeviceId" 
           class="device-input"
           placeholder="DeviceID"
-          list="device-list"
         />
-        <datalist id="device-list">
-          <option v-for="device in canvasDevices" :key="device.deviceId" :value="device.deviceId">
-            {{ device.deviceId }} ({{ device.name }})
-          </option>
-        </datalist>
         
         <label class="inline-label">Start:</label>
         <input 
           type="text" 
           v-model="timeInput" 
           class="time-input"
-          placeholder="2025103123:27:28"
+          placeholder="2025110423:27:42"
         />
         
         <label class="inline-label">～</label>
@@ -35,33 +29,34 @@
           type="number" 
           v-model.number="timeLong" 
           class="time-long-input"
-          :disabled="useEventTime"
           min="1"
-          max="30"
+          max="60"
         />
         <span class="unit">mins</span>
         
-        <label class="checkbox-option">
-          <input type="checkbox" v-model="useEventTime" />
-          <span>Event</span>
-        </label>
-        
         <button 
           class="action-btn primary" 
-          @click="handlePlayBack"
-          :disabled="!canPlayBack"
+          @click="handleLoadServer"
+          :disabled="!canLoadServer"
         >
-          Play
+          Load
+        </button>
+        
+        <button 
+          class="action-btn success" 
+          @click="handleRealTimeServer"
+          :disabled="!canRealTimeServer"
+        >
+          RealTime
         </button>
       </div>
       
-      <!-- Row 2: File + Display + PlayFile + PlayDemo -->
+      <!-- Row 2: fromFile -->
       <div class="control-row">
-        <label class="row-label">fromLocalFile:</label>
+        <label class="row-label">fromFile:</label>
         <button 
           class="action-btn file-btn" 
-          @click="handleFromFile" 
-          :disabled="isPlaying"
+          @click="handleFromFile"
         >
           File
         </button>
@@ -71,33 +66,39 @@
           <span v-else class="placeholder">No file selected</span>
         </div>
         
-        <label class="inline-label">Display:</label>
-        <select v-model="displayRadarId" class="display-select">
-          <option value="">Auto</option>
-          <option v-for="radar in canvasRadars" :key="radar.id" :value="radar.id">
-            {{ radar.name }}
-          </option>
-        </select>
-        
         <button 
-          class="action-btn" 
-          :class="{ 'enabled': canPlayFile && !isPlaying }"
-          @click="handlePlayFile"
-          :disabled="!canPlayFile || isPlaying"
+          class="action-btn primary" 
+          @click="handleLoadFile"
+          :disabled="!canLoadFile"
         >
-          Play
+          Load
         </button>
         
         <button 
           class="action-btn success" 
-          @click="handlePlayDemo"
-          :disabled="isPlaying"
+          @click="handleRealTimeFile"
+          :disabled="!canRealTimeFile"
+        >
+          RealTime
+        </button>
+        
+        <label class="inline-label">Select:</label>
+        <select v-model="displayDeviceId" class="device-select">
+          <option value="">Auto</option>
+          <option v-for="device in canvasDevices" :key="device.deviceId" :value="device.deviceId">
+            {{ device.name }}
+          </option>
+        </select>
+        
+        <button 
+          class="action-btn demo" 
+          @click="handleDemo"
         >
           Demo
         </button>
       </div>
       
-      <!-- Row 3: Pause/Stop + Speed + Progress -->
+      <!-- Row 3: Playback controls -->
       <div class="control-row row-tight">
         <button 
           class="action-btn control-btn" 
@@ -188,16 +189,15 @@ const radarDataStore = useRadarDataStore();
 const waveformCanvasRef = ref<HTMLCanvasElement | null>(null);
 
 // ===== 状态管理 =====
-const selectedDeviceId = ref('');    // DeviceID 查询（第1行）
-const displayRadarId = ref('');      // 展示雷达
-const timeInput = ref('');
-const useEventTime = ref(false);
-const timeLong = ref(2);
+const selectedDeviceId = ref('');    // fromServer: DeviceID
+const timeInput = ref('');           // fromServer: Start时间
+const timeLong = ref(5);             // fromServer: 时长（分钟）
 
-const selectedFileName = ref('');    // 文件选择（第2行）
-const selectedFileContent = ref(''); // 文件内容
+const selectedFileName = ref('');    // fromFile: 文件名
+const selectedFileContent = ref(''); // fromFile: 文件内容
+const displayDeviceId = ref('');     // fromFile: Select设备
 
-const isPlaying = ref(false);        // 播放状态（第3行）
+const isPlaying = ref(false);        // 播放状态
 const isPaused = ref(false);         // 暂停状态
 const playbackSpeed = ref<number>(1);
 const currentTimeDisplay = ref('00:00:00');
@@ -227,25 +227,35 @@ const canvasRadars = computed(() => {
   return objectsStore.objects.filter(obj => obj.typeName === 'Radar');
 });
 
-// 本 Canvas 中的设备信息（用于 DeviceID 提示）
+// 本 Canvas 中的设备信息（包括Radar和Sleeppad）
 const canvasDevices = computed(() => {
-  return canvasRadars.value.map(r => ({
-    deviceId: r.device?.iot?.deviceId || r.id,
-    name: r.name,
-    radarId: r.id  // Canvas 内部ID
-  }));
+  return objectsStore.objects
+    .filter(obj => obj.typeName === 'Radar' || obj.typeName === 'Sleeppad')
+    .map(obj => ({
+      deviceId: obj.device?.iot?.deviceId || obj.id,
+      name: obj.name || obj.typeName,
+      type: obj.typeName
+    }));
 });
 
-// PlayBack 按钮是否可用（第1行）
-const canPlayBack = computed(() => {
-  if (!selectedDeviceId.value) return false;
-  if (!timeInput.value) return false;
-  return true;
+// fromServer: Load 按钮可用
+const canLoadServer = computed(() => {
+  return selectedDeviceId.value && timeInput.value && timeLong.value;
 });
 
-// PlayFile 按钮是否可用（第2行）
-const canPlayFile = computed(() => {
-  return !!selectedFileName.value;
+// fromServer: RealTime 按钮可用
+const canRealTimeServer = computed(() => {
+  return selectedDeviceId.value;
+});
+
+// fromFile: Load 按钮可用
+const canLoadFile = computed(() => {
+  return selectedFileName.value && selectedFileContent.value;
+});
+
+// fromFile: RealTime 按钮可用
+const canRealTimeFile = computed(() => {
+  return selectedFileName.value && selectedFileContent.value;
 });
 
 // 已播放分钟数
@@ -304,62 +314,55 @@ const handleFromFile = () => {
 };
 
 // Row 1: PlayBack (query from server)
-const handlePlayBack = () => {
-  console.log('🎬 PlayBack: Query historical data from server');
-  startPlayback('backend');
+// ===== Row 1: fromServer =====
+const handleLoadServer = () => {
+  console.log('📡 Load from Server: Historical data');
+  startPlayback('server');
 };
 
-// Row 2: PlayFile (play from selected file)
-const handlePlayFile = () => {
-  console.log('📂 PlayFile: Play from file');
+const handleRealTimeServer = () => {
+  console.log('🔴 RealTime from Server');
+  // TODO: 实现实时模式
+  alert('RealTime mode: Coming soon');
+};
+
+// ===== Row 2: fromFile =====
+const handleLoadFile = () => {
+  console.log('📂 Load from File: Historical data');
   startPlayback('file');
 };
 
-// Row 2: PlayDemo (demo mode)
-const handlePlayDemo = () => {
-  console.log('🎲 PlayDemo: Demo mode');
-  
-  // Set demo parameters
-  selectedDeviceId.value = canvasDevices.value[0]?.deviceId || 'DEMO_UUID';
-  displayRadarId.value = canvasRadars.value[0]?.id || '';
-  
-  const now = Math.floor(Date.now() / 1000);
-  const demoStart = now - 300;
-  timeInput.value = formatTimestamp(demoStart);
-  
-  useEventTime.value = false;
-  timeLong.value = 2;
-  playbackSpeed.value = 1;
-  
-  // Start playback
+const handleRealTimeFile = () => {
+  console.log('🔴 RealTime from File');
+  // TODO: 实现实时模式
+  alert('RealTime mode: Coming soon');
+};
+
+// ===== Demo模式（用于测试） =====
+const handleDemo = () => {
+  console.log('🎲 Demo mode');
   startPlayback('demo');
 };
 
 // 开始播放（统一入口）
-const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
+const startPlayback = async (source: 'server' | 'file' | 'demo') => {
   try {
-    // 验证展示雷达
-    if (!displayRadarId.value && canvasRadars.value.length > 0) {
-      displayRadarId.value = canvasRadars.value[0].id;
-      console.log(`🎯 自动选择展示雷达: ${canvasRadars.value[0].name}`);
-    }
-    
-    const displayRadar = canvasRadars.value.find(r => r.id === displayRadarId.value);
-    
-    console.log(`\n🎬 开始回放 (${source})`);
-    console.log(`🎨 展示雷达: ${displayRadar?.name || '未选择'}`);
+    console.log(`\n🎬 开始加载数据 (${source})`);
     
     // 启用回放模式（禁用时间过滤）
     radarDataStore.setPlaybackMode(true);
     
     let historicalData: any[] = [];
     
-    if (source === 'backend') {
-      // 从服务器查询
-      const queryParams = calculateTimeRange();
-      console.log('📡 查询参数:', queryParams);
+    if (source === 'server') {
+      // 从服务器查询历史数据
+      console.log('📡 从服务器查询:', {
+        deviceId: selectedDeviceId.value,
+        start: timeInput.value,
+        duration: timeLong.value
+      });
       
-      alert('Backend mode: Not implemented yet. Please use Demo mode.');
+      alert('Server mode: Not implemented yet.\nPlease use File or Demo for testing.');
       radarDataStore.setPlaybackMode(false);
       return;
       
@@ -755,51 +758,13 @@ const drawWaveform = () => {
   // RR阈值
   const rrThresholds = { normal: [10, 23], l2Low: [8, 9], l2High: [24, 26] };
   
-  // 1. 绘制辅助线（合并HR和RR的边界线）
-  const allThresholds = [
-    { val: hrThresholds.normal[0], color: '#ffc000', label: 'HR55' },
-    { val: hrThresholds.normal[1], color: '#ffc000', label: 'HR95' },
-    { val: hrThresholds.l2Low[0], color: '#ff4d4f', label: 'HR45' },
-    { val: hrThresholds.l2Low[1], color: '#ff4d4f', label: 'HR54' },
-    { val: hrThresholds.l2High[0], color: '#ff4d4f', label: 'HR96' },
-    { val: hrThresholds.l2High[1], color: '#ff4d4f', label: 'HR115' },
-    { val: rrThresholds.normal[0], color: '#ffc000', label: 'RR10' },
-    { val: rrThresholds.normal[1], color: '#ffc000', label: 'RR23' },
-    { val: rrThresholds.l2Low[0], color: '#ff4d4f', label: 'RR8' },
-    { val: rrThresholds.l2Low[1], color: '#ff4d4f', label: 'RR9' },
-    { val: rrThresholds.l2High[0], color: '#ff4d4f', label: 'RR24' },
-    { val: rrThresholds.l2High[1], color: '#ff4d4f', label: 'RR26' }
-  ];
-  
-  // 绘制辅助线
-  ctx.setLineDash([5, 5]);
-  ctx.lineWidth = 1;
-  ctx.font = '9px Arial';
-  ctx.textAlign = 'left';
-  
-  allThresholds.forEach(({ val, color, label }) => {
-    const y = valueToY(val, height);
-    
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(40, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-    
-    // 右侧标注
-    ctx.fillStyle = color;
-    ctx.fillText(label, width - 35, y - 2);
-  });
-  
-  ctx.setLineDash([]); // 恢复实线
-  
-  // 2. 绘制Y轴刻度和网格
+  // 1. 绘制Y轴刻度和网格（每10一标）
   ctx.fillStyle = isDark ? '#666' : '#999';
   ctx.font = '10px Arial';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   
-  [0, 50, 100, 150].forEach(val => {
+  for (let val = 0; val <= 150; val += 10) {
     const y = valueToY(val, height);
     ctx.fillText(val.toString(), 35, y);
     
@@ -808,9 +773,45 @@ const drawWaveform = () => {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(40, y);
-    ctx.lineTo(width, y);
+    ctx.lineTo(width - 40, y);
     ctx.stroke();
+  }
+  
+  // 2. 绘制辅助线
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 5]);
+  ctx.font = '9px Arial';
+  ctx.textAlign = 'left';
+  
+  // 黄色虚线：10, 23, 55, 95
+  ctx.strokeStyle = '#ffc000';
+  [10, 23, 55, 95].forEach(val => {
+    const y = valueToY(val, height);
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(width - 40, y);
+    ctx.stroke();
+    
+    // 右侧标注
+    ctx.fillStyle = '#ffc000';
+    ctx.fillText(val.toString(), width - 35, y - 2);
   });
+  
+  // 红色虚线：8, 26, 45, 115
+  ctx.strokeStyle = '#ff4d4f';
+  [8, 26, 45, 115].forEach(val => {
+    const y = valueToY(val, height);
+    ctx.beginPath();
+    ctx.moveTo(40, y);
+    ctx.lineTo(width - 40, y);
+    ctx.stroke();
+    
+    // 右侧标注
+    ctx.fillStyle = '#ff4d4f';
+    ctx.fillText(val.toString(), width - 35, y - 2);
+  });
+  
+  ctx.setLineDash([]); // 恢复实线
   
   // 3. 绘制HR波形
   if (showHR.value && data.length >= 2) {
@@ -1013,12 +1014,13 @@ const getRRColor = (
   font-family: system-ui;
 }
 
-.display-select {
+.display-select,
+.device-select {
   padding: 4px 6px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 75px;
+  width: 90px;
   background-color: white;
 }
 
@@ -1140,6 +1142,18 @@ const getRRColor = (
   background-color: #f5f5f5;
   border-color: #d9d9d9;
   color: #bfbfbf;
+}
+
+.action-btn.demo {
+  background-color: #722ed1;
+  border-color: #722ed1;
+  color: white;
+  font-weight: 500;
+}
+
+.action-btn.demo:hover {
+  background-color: #9254de;
+  border-color: #9254de;
 }
 
 /* File display box */
