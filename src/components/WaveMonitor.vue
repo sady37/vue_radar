@@ -192,10 +192,12 @@ const waveformCanvasRef = ref<HTMLCanvasElement | null>(null);
 const selectedDeviceId = ref('');    // fromServer: DeviceID
 const timeInput = ref('');           // fromServer: Start时间
 const timeLong = ref(5);             // fromServer: 时长（分钟）
+const useEventTime = ref(false);     // Event模式（暂时保留，兼容旧代码）
 
 const selectedFileName = ref('');    // fromFile: 文件名
 const selectedFileContent = ref(''); // fromFile: 文件内容
 const displayDeviceId = ref('');     // fromFile: Select设备
+const displayRadarId = ref('');      // 展示雷达（兼容旧代码）
 
 const isPlaying = ref(false);        // 播放状态
 const isPaused = ref(false);         // 暂停状态
@@ -407,8 +409,8 @@ const startPlayback = async (source: 'server' | 'file' | 'demo') => {
         objectsStore.objects  // 传递 Canvas 对象数组
       );
       
-      // 获取仿真历史数据（生成240秒=4分钟的数据）
-      const demoSeconds = 240;
+      // 获取仿真历史数据（生成120秒=2分钟的数据）
+      const demoSeconds = 120;
       historicalData = mockService.getHistoricalData(demoSeconds);
       totalSeconds.value = historicalData.length;
       
