@@ -252,12 +252,8 @@
       :end-epoch="vitalEndEpoch"
     />
     
-    <!-- Status display area (2 lines) -->
+    <!-- Status display area (1 line) -->
     <div class="status-display">
-      <div class="status-line">
-        <span v-if="!dataLoaded">Select data source and click Play or Demo</span>
-        <span v-else>Data loaded: {{ loadedDataInfo }}</span>
-      </div>
       <div class="status-line">
         <span v-if="useEventTime && !isPlaying">Event: 60s before + 120s after = 3min</span>
         <span v-else-if="!isPlaying && timeInput">StartTime: {{ timeLong }}min</span>
@@ -1070,6 +1066,9 @@ const formatTimestamp = (timestamp: number): string => {
   padding: 10px 15px;
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
+  overflow-x: auto;  /* 临时调试：允许横向滚动 */
+  border-left: 3px solid blue;  /* 临时调试：显示左边界 */
+  border-right: 3px solid blue;  /* 临时调试：显示右边界 */
 }
 
 /* HR/RR工具栏 */
@@ -1077,6 +1076,9 @@ const formatTimestamp = (timestamp: number): string => {
   padding: 8px 15px;
   background-color: #f0f7ff;
   border-bottom: 1px solid #d0e7ff;
+  overflow-x: auto;  /* 临时调试：允许横向滚动 */
+  border-left: 3px solid green;  /* 临时调试：显示左边界 */
+  border-right: 3px solid green;  /* 临时调试：显示右边界 */
 }
 
 .vital-row {
@@ -1489,7 +1491,7 @@ const formatTimestamp = (timestamp: number): string => {
 
 .file-display-box-sm {
   flex: 1;
-  max-width: 130px;  /* 缩小到130px */
+  max-width: 115px;  /* 再缩小到115px */
   padding: 4px 8px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
@@ -1542,7 +1544,7 @@ const formatTimestamp = (timestamp: number): string => {
 
 .bg-toggle .bg-text-fixed {
   display: inline-block;
-  width: 42px;  /* 固定宽度：White=5字符，Black=5字符 */
+  width: 38px;  /* 缩小到38px */
   text-align: left;
   font-weight: 500;
   margin-right: 0;
