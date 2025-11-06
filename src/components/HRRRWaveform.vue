@@ -222,8 +222,10 @@ const drawWaveform = () => {
   ctx.lineTo(canvasWidth.value - padding.right, canvasHeight.value - padding.bottom);
   ctx.stroke();
   
-  // X轴刻度
+  // X轴刻度和标签
+  ctx.strokeStyle = gridColor;
   ctx.fillStyle = textColor;
+  ctx.font = '12px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   
@@ -234,26 +236,30 @@ const drawWaveform = () => {
       const x = padding.left + (chartWidth * (index / (ticks.length - 1)));
       const y = canvasHeight.value - padding.bottom;
       // 刻度线
+      ctx.strokeStyle = gridColor;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, y + 5);
       ctx.stroke();
       // 标签
+      ctx.fillStyle = textColor;
       ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
     });
   } else {
-    // 历史模式：0-30分钟
-    const durationMinutes = Math.ceil(totalDuration.value / 60);
-    const tickCount = Math.min(durationMinutes, 6);
+    // 历史模式：0-30分钟（即使无数据也显示默认刻度）
+    const durationMinutes = props.data.length > 0 ? Math.ceil(totalDuration.value / 60) : 30;
+    const tickCount = 6;  // 固定6个刻度
     for (let i = 0; i <= tickCount; i++) {
       const x = padding.left + (chartWidth * (i / tickCount));
       const y = canvasHeight.value - padding.bottom;
       // 刻度线
+      ctx.strokeStyle = gridColor;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, y + 5);
       ctx.stroke();
       // 标签
+      ctx.fillStyle = textColor;
       const minutes = Math.round((durationMinutes * i) / tickCount);
       ctx.fillText(`${minutes}min`, x, y + 8);
     }
