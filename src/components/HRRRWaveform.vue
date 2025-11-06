@@ -556,7 +556,7 @@ onMounted(() => {
 .hrrr-waveform {
   position: relative;
   border-radius: 4px;
-  padding: 0 15px;  /* 左右15px与工具栏对齐 */
+  padding: 0 7px;  /* 左右7px与工具栏对齐 */
   border: none;
   width: 100%;
   box-sizing: border-box;

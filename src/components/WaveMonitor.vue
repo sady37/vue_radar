@@ -1023,7 +1023,7 @@ const formatTimestamp = (timestamp: number): string => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 15px;
+  padding: 10px 7px;  /* 左右padding减少到7px */
   background-color: #f5f5f5;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -1063,14 +1063,14 @@ const formatTimestamp = (timestamp: number): string => {
 
 /* 工具栏 */
 .track-toolbar {
-  padding: 10px 15px;
+  padding: 10px 7px 10px 7px;  /* 左右padding减少到7px */
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
 }
 
 /* HR/RR工具栏 */
 .vital-toolbar {
-  padding: 8px 15px;
+  padding: 8px 7px;  /* 左右padding减少到7px，与track-toolbar一致 */
   background-color: #f0f7ff;
   border-bottom: 1px solid #d0e7ff;
 }
@@ -1553,7 +1553,7 @@ const formatTimestamp = (timestamp: number): string => {
 
 /* 状态显示区域 */
 .status-display {
-  padding: 8px 15px;
+  padding: 8px 7px;  /* 左右padding减少到7px */
   background-color: #f9f9f9;
   border-top: 1px solid #e0e0e0;
   font-size: 12px;
