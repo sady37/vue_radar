@@ -321,8 +321,6 @@ const drawWaveform = () => {
   // 绘制HR曲线（蓝色）
   ctx.strokeStyle = '#1890ff';
   ctx.lineWidth = 2;
-  ctx.shadowColor = '#1890ff';
-  ctx.shadowBlur = 3;
   ctx.beginPath();
   let hasHRData = false;
   displayData.forEach((point, index) => {
@@ -338,13 +336,10 @@ const drawWaveform = () => {
     }
   });
   if (hasHRData) ctx.stroke();
-  ctx.shadowBlur = 0;
   
   // 绘制RR曲线（绿色）
   ctx.strokeStyle = '#52c41a';
   ctx.lineWidth = 2;
-  ctx.shadowColor = '#52c41a';
-  ctx.shadowBlur = 3;
   ctx.beginPath();
   let hasRRData = false;
   displayData.forEach((point, index) => {
@@ -360,7 +355,6 @@ const drawWaveform = () => {
     }
   });
   if (hasRRData) ctx.stroke();
-  ctx.shadowBlur = 0;
   
   // 历史模式：绘制当前时间指示线
   if (props.mode === 'history' && currentTime.value > 0) {
