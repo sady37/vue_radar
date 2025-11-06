@@ -270,10 +270,6 @@ const drawWaveform = () => {
     ctx.fillText(String(tick), padding.left - 10, y);
   });
   
-  // 睡眠状态区域标签（Y=-2位置）
-  const ySleep = valueToY(-1);  // 在-2和0中间位置
-  ctx.fillText('Sleep', padding.left - 10, ySleep);
-  
   // 在Y=0位置画一条分隔线
   const y0Line = valueToY(0);
   ctx.strokeStyle = gridColor;
