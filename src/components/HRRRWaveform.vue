@@ -110,22 +110,32 @@ const RR_THRESHOLDS = {
 
 // 根据HR值获取颜色
 const getHRColor = (value: number): string => {
-  if (value >= HR_THRESHOLDS.normal.min && value <= HR_THRESHOLDS.normal.max) {
+  // Normal: 55-95
+  if (value >= 55 && value <= 95) {
     return '#1890ff';  // Normal: 蓝色
-  } else if (value >= HR_THRESHOLDS.l2.min && value <= HR_THRESHOLDS.l2.max) {
+  }
+  // L2: 45-54 或 96-115
+  else if ((value >= 45 && value <= 54) || (value >= 96 && value <= 115)) {
     return '#fadb14';  // L2: 黄色
-  } else {
+  }
+  // L1: 0-44 或 116+
+  else {
     return '#ff4d4f';  // L1: 红色
   }
 };
 
 // 根据RR值获取颜色
 const getRRColor = (value: number): string => {
-  if (value >= RR_THRESHOLDS.normal.min && value <= RR_THRESHOLDS.normal.max) {
+  // Normal: 10-23
+  if (value >= 10 && value <= 23) {
     return '#52c41a';  // Normal: 绿色
-  } else if (value >= RR_THRESHOLDS.l2.min && value <= RR_THRESHOLDS.l2.max) {
+  }
+  // L2: 8-9 或 24-26
+  else if ((value >= 8 && value <= 9) || (value >= 24 && value <= 26)) {
     return '#fadb14';  // L2: 黄色
-  } else {
+  }
+  // L1: 0-7 或 27+
+  else {
     return '#ff4d4f';  // L1: 红色
   }
 };
