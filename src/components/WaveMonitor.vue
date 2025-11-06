@@ -37,7 +37,7 @@
           type="text" 
           v-model="timeInput" 
           class="time-input time-input-wide"
-          placeholder="2025103123:27:28"
+          placeholder="2025103123:27"
         />
         
         <label class="inline-label">～</label>
@@ -1188,7 +1188,7 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .time-input-wide {
-  width: 140px;  /* Start时间输入框 */
+  width: 130px;  /* Start时间输入框（精确到分钟，缩小10px） */
 }
 
 .time-long-input {
@@ -1196,7 +1196,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 50px;  /* 时长输入框 */
+  width: 60px;  /* 时长输入框（扩大10px） */
   text-align: center;
   background-color: white;
 }
