@@ -251,16 +251,6 @@
       :start-epoch="vitalStartEpoch"
       :end-epoch="vitalEndEpoch"
     />
-    
-    <!-- Status display area (1 line) -->
-    <div class="status-display">
-      <div class="status-line">
-        <span v-if="useEventTime && !isPlaying">Event: 60s before + 120s after = 3min</span>
-        <span v-else-if="!isPlaying && timeInput">StartTime: {{ timeLong }}min</span>
-        <span v-else-if="isPlaying">Playing... ({{ playbackSpeed }}x speed)</span>
-        <span v-else>&nbsp;</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -299,9 +289,6 @@ const playbackSpeed = ref<number>(1);
 const currentTimeDisplay = ref('00:00:00');
 const elapsedSeconds = ref(0);
 const totalSeconds = ref(0);
-
-const dataLoaded = ref(false);
-const loadedDataInfo = ref('');
 
 // HR/RR控制状态
 const vitalDeviceId = ref('');        // fromServer: DeviceID
@@ -403,8 +390,6 @@ const handleFromFile = () => {
       
       selectedFileName.value = file.name;
       selectedFileContent.value = text;
-      dataLoaded.value = true;
-      loadedDataInfo.value = `${file.name} (${text.split('\n').length} 行)`;
       
       console.log(`✅ File selected: ${file.name}`);
     } catch (error) {
@@ -693,8 +678,6 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     isPlaying.value = true;
     isPaused.value = false;
     elapsedSeconds.value = 0;
-    dataLoaded.value = true;
-    loadedDataInfo.value = `${historicalData.length} records loaded from ${source}`;
     
     // 初始化显示
     currentTimeDisplay.value = formatSecondsToTime(historicalData[0].timestamp);
@@ -944,8 +927,6 @@ const handleStop = () => {
   isPaused.value = false;
   elapsedSeconds.value = 0;
   currentTimeDisplay.value = '00:00:00';
-  dataLoaded.value = false;
-  loadedDataInfo.value = '';
 };
 
 // 计算查询参数（第1层：数据查询）
@@ -1185,7 +1166,7 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .time-input-wide {
-  width: 140px;  /* 恢复v0.6的140px（但保留精确到分钟的placeholder） */
+  width: 120px;  /* 减小20px: 140 -> 120 */
 }
 
 .time-long-input {
@@ -1193,7 +1174,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 50px;  /* 恢复v0.6的50px */
+  width: 60px;  /* 增加10px: 50 -> 60 */
   text-align: center;
   background-color: white;
 }
@@ -1549,24 +1530,6 @@ const formatTimestamp = (timestamp: number): string => {
   align-items: center;
   gap: 6px;
   margin-left: 2px;  /* 整体右移2px */
-}
-
-/* 状态显示区域 */
-.status-display {
-  padding: 8px 15px;  /* 恢复v0.6的15px */
-  background-color: #f9f9f9;
-  border-top: 1px solid #e0e0e0;
-  font-size: 12px;
-}
-
-.status-line {
-  padding: 3px 0;
-  color: #666;
-  min-height: 18px;
-}
-
-.status-line span {
-  color: #333;
 }
 
 .waveform-content {
