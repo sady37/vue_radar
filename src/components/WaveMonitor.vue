@@ -248,6 +248,8 @@
       :width="800"
       :height="400"
       :dark-background="darkBackground"
+      :start-epoch="vitalStartEpoch"
+      :end-epoch="vitalEndEpoch"
     />
     
     <!-- Status display area (2 lines) -->
@@ -318,6 +320,8 @@ const darkBackground = ref(true);     // 背景色（默认黑色）
 const vitalMode = ref<'realtime' | 'history'>('history');  // 波形模式
 const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 波形数据
 const vitalParsedData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 解析后的临时数据
+const vitalStartEpoch = ref<number>(0);  // 历史数据的起始时间（秒，epoch）
+const vitalEndEpoch = ref<number>(0);    // 历史数据的结束时间（秒，epoch）
 
 // 播放控制
 let playbackIntervalId: number | null = null;
@@ -476,9 +480,13 @@ const handleVitalFromFile = () => {
       
       // 解析CSV数据到临时变量（不立即显示）
       if (file.name.endsWith('.csv')) {
-        const parsedData = parseVitalCSV(text);
-        vitalParsedData.value = parsedData;
-        console.log(`✅ 解析Vital CSV: ${parsedData.length} 条记录`);
+        const result = parseVitalCSV(text);
+        vitalParsedData.value = result.records;
+        vitalStartEpoch.value = result.startEpoch;
+        vitalEndEpoch.value = result.endEpoch;
+        console.log(`✅ 解析Vital CSV: ${result.records.length} 条记录`);
+        console.log(`   起始: ${new Date(result.startEpoch * 1000).toLocaleString()}`);
+        console.log(`   结束: ${new Date(result.endEpoch * 1000).toLocaleString()}`);
       }
       
       console.log(`✅ Vital file selected: ${file.name}`);
@@ -495,11 +503,11 @@ const handleVitalFromFile = () => {
 };
 
 // 解析Vital CSV数据
-const parseVitalCSV = (content: string): Array<{ timestamp: number; hr: number; rr: number }> => {
+const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; hr: number; rr: number }>, startEpoch: number, endEpoch: number } => {
   const lines = content.trim().split('\n');
   const data: Array<{ timestamp: number; hr: number; rr: number }> = [];
   
-  if (lines.length < 2) return data;
+  if (lines.length < 2) return { records: [], startEpoch: 0, endEpoch: 0 };
   
   // 跳过表头
   for (let i = 1; i < lines.length; i++) {
@@ -525,16 +533,21 @@ const parseVitalCSV = (content: string): Array<{ timestamp: number; hr: number; 
   // 按时间戳排序（从旧到新）
   data.sort((a, b) => a.timestamp - b.timestamp);
   
-  // 转换为相对时间（秒），第一条记录为0秒
+  // 记录原始起始和结束epoch，再转换为相对时间
+  let startEpoch = 0;
+  let endEpoch = 0;
   if (data.length > 0) {
-    const startTime = data[0].timestamp;
+    startEpoch = data[0].timestamp;
+    endEpoch = data[data.length - 1].timestamp;
+    
+    // 转换为相对时间（第一条记录为0秒）
     data.forEach(record => {
-      record.timestamp = record.timestamp - startTime;
+      record.timestamp = record.timestamp - startEpoch;
     });
   }
   
   console.log(`✅ Vital CSV解析完成: ${data.length} 条记录, 时长: ${data.length > 0 ? data[data.length - 1].timestamp : 0}秒`);
-  return data;
+  return { records: data, startEpoch, endEpoch };
 };
 
 const handleLoadVitalFile = () => {

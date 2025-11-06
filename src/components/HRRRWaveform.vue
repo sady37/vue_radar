@@ -57,6 +57,8 @@ const props = withDefaults(defineProps<{
   width?: number;                // Canvas宽度
   height?: number;               // Canvas高度
   darkBackground?: boolean;      // 背景色控制
+  startEpoch?: number;           // 历史数据起始时间（epoch秒）
+  endEpoch?: number;             // 历史数据结束时间（epoch秒）
 }>(), {
   width: 800,
   height: 400,
@@ -150,7 +152,24 @@ const drawWaveform = () => {
       const ratio = index / dataLength;
       return padding.left + chartWidth * ratio;
     } else {
-      // 历史模式：整个时间范围
+      // 历史模式：基于分钟边界计算
+      const startEpoch = props.startEpoch || 0;
+      const endEpoch = props.endEpoch || startEpoch;
+      
+      if (startEpoch > 0 && endEpoch > 0 && props.data.length > 0 && index < props.data.length) {
+        // 计算分钟边界
+        const startMinuteBoundary = Math.floor(startEpoch / 60) * 60;
+        const endMinuteBoundary = Math.ceil(endEpoch / 60) * 60;
+        
+        // 数据点的实际epoch = 起始epoch + 相对时间
+        const pointEpoch = startEpoch + props.data[index].timestamp;
+        
+        // 计算在分钟边界范围内的比例
+        const ratio = (pointEpoch - startMinuteBoundary) / (endMinuteBoundary - startMinuteBoundary);
+        return padding.left + chartWidth * ratio;
+      }
+      
+      // 回退：使用索引比例
       const ratio = index / Math.max(1, props.data.length - 1);
       return padding.left + chartWidth * ratio;
     }
@@ -247,42 +266,36 @@ const drawWaveform = () => {
         ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
       });
     } else {
-      // 历史模式：根据实际数据时长均匀分布
-      const durationSeconds = totalDuration.value;  // 实际时长（秒）
-      const durationMinutes = durationSeconds / 60;  // 转换为分钟
+      // 历史模式：X轴对齐到分钟边界
+      const startEpoch = props.startEpoch || 0;
+      const endEpoch = props.endEpoch || startEpoch;
       
-      // 根据时长决定刻度数量
-      const tickCount = 6;  // 固定6个间隔 = 7个刻度点
-      
-      for (let i = 0; i <= tickCount; i++) {
-        const x = padding.left + (chartWidth * (i / tickCount));
-        const y = canvasHeight.value - padding.bottom;
+      if (startEpoch > 0 && endEpoch > 0) {
+        // 计算分钟边界（向下取整起始，向上取整结束）
+        const startMinuteBoundary = Math.floor(startEpoch / 60) * 60;
+        const endMinuteBoundary = Math.ceil(endEpoch / 60) * 60;
+        const totalMinutes = Math.ceil((endMinuteBoundary - startMinuteBoundary) / 60);
         
-        // 刻度线
-        ctx.strokeStyle = gridColor;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + 5);
-        ctx.stroke();
-        
-        // 标签 - 显示分钟数
-        ctx.fillStyle = textColor;
-        const minutes = (durationMinutes * i) / tickCount;
-        
-        // 如果时长小于1分钟，显示秒数；否则显示分钟数
-        let label = '';
-        if (durationSeconds < 60) {
-          const seconds = Math.round((durationSeconds * i) / tickCount);
-          label = `${seconds}s`;
-        } else if (durationMinutes < 10) {
-          // 小于10分钟，显示1位小数
-          label = `${minutes.toFixed(1)}min`;
-        } else {
-          // 10分钟以上，显示整数
-          label = `${Math.round(minutes)}min`;
+        // 绘制分钟刻度（每分钟一个刻度）
+        for (let i = 0; i <= totalMinutes; i++) {
+          const tickEpoch = startMinuteBoundary + (i * 60);
+          const ratio = (tickEpoch - startMinuteBoundary) / (endMinuteBoundary - startMinuteBoundary);
+          const x = padding.left + (chartWidth * ratio);
+          const y = canvasHeight.value - padding.bottom;
+          
+          // 刻度线
+          ctx.strokeStyle = gridColor;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 5);
+          ctx.stroke();
+          
+          // 标签：只显示分钟数
+          ctx.fillStyle = textColor;
+          const date = new Date(tickEpoch * 1000);
+          const minutes = date.getMinutes();
+          ctx.fillText(`${minutes}`, x, y + 8);
         }
-        
-        ctx.fillText(label, x, y + 8);
       }
     }
   }
