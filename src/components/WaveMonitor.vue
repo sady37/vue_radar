@@ -1066,9 +1066,6 @@ const formatTimestamp = (timestamp: number): string => {
   padding: 10px 15px;
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
-  overflow-x: auto;  /* 临时调试：允许横向滚动 */
-  border-left: 3px solid blue;  /* 临时调试：显示左边界 */
-  border-right: 3px solid blue;  /* 临时调试：显示右边界 */
 }
 
 /* HR/RR工具栏 */
@@ -1076,9 +1073,6 @@ const formatTimestamp = (timestamp: number): string => {
   padding: 8px 15px;
   background-color: #f0f7ff;
   border-bottom: 1px solid #d0e7ff;
-  overflow-x: auto;  /* 临时调试：允许横向滚动 */
-  border-left: 3px solid green;  /* 临时调试：显示左边界 */
-  border-right: 3px solid green;  /* 临时调试：显示右边界 */
 }
 
 .vital-row {
