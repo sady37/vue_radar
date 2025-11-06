@@ -208,9 +208,9 @@ const drawWaveform = () => {
   drawAlarmLine(HR_THRESHOLDS.l2.min, '#ff4d4f', 'HR-L2');     // 45 红色
   drawAlarmLine(HR_THRESHOLDS.l2.max, '#ff4d4f', 'HR-L1');     // 115 红色
   
-  // RR报警线
-  drawAlarmLine(RR_THRESHOLDS.normal.min, '#fadb14', 'RR-N');  // 10 黄色
-  drawAlarmLine(RR_THRESHOLDS.normal.max, '#fadb14', '');      // 23 黄色
+  // RR报警线（去掉normal黄线，因为太接近L2红线）
+  // drawAlarmLine(RR_THRESHOLDS.normal.min, '#fadb14', 'RR-N');  // 10 黄色 (已删除)
+  // drawAlarmLine(RR_THRESHOLDS.normal.max, '#fadb14', '');      // 23 黄色 (已删除)
   drawAlarmLine(RR_THRESHOLDS.l2.min, '#ff4d4f', 'RR-L2');     // 8 红色
   drawAlarmLine(RR_THRESHOLDS.l2.max, '#ff4d4f', '');          // 26 红色
   
