@@ -565,10 +565,11 @@ onMounted(() => {
 .hrrr-waveform {
   position: relative;
   border-radius: 4px;
-  padding: 8px;
-  border: 1px solid #e0e0e0;
-  width: fit-content;  /* 容器适应canvas大小 */
-  max-width: 100%;     /* 不超过父容器 */
+  padding: 0;  /* 去掉padding，与工具栏对齐 */
+  border: none;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 canvas {
