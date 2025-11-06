@@ -140,14 +140,6 @@ const getRRColor = (value: number): string => {
   }
 };
 
-// 调试：检查是否正确应用（测试RR=18应该返回绿色）
-if (typeof window !== 'undefined') {
-  (window as any).__testRRColor = getRRColor;
-  console.log('RR Color Test: RR=18 should be green:', getRRColor(18));
-  console.log('RR Color Test: RR=9 should be yellow:', getRRColor(9));
-  console.log('RR Color Test: RR=25 should be yellow:', getRRColor(25));
-}
-
 // 绘制波形
 const drawWaveform = () => {
   const canvas = canvasRef.value;
@@ -405,11 +397,6 @@ const drawWaveform = () => {
       const x = indexToX(index);
       const y = valueToY(point.rr);
       const color = getRRColor(point.rr);
-      
-      // 调试：每50个点输出一次
-      if (index % 50 === 0) {
-        console.log(`RR Draw: index=${index}, rr=${point.rr}, color=${color}`);
-      }
       
       // 颜色变化或首次绘制时，开始新路径
       if (color !== prevRRColor) {
