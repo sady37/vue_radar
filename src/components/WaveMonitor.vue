@@ -1023,7 +1023,7 @@ const formatTimestamp = (timestamp: number): string => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 7px;  /* 左右padding减少到7px */
+  padding: 10px 15px;  /* 恢复v0.6的15px */
   background-color: #f5f5f5;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -1063,14 +1063,14 @@ const formatTimestamp = (timestamp: number): string => {
 
 /* 工具栏 */
 .track-toolbar {
-  padding: 10px 7px 10px 7px;  /* 左右padding减少到7px */
+  padding: 10px 15px;  /* 恢复v0.6的15px padding */
   background-color: #fafafa;
   border-bottom: 1px solid #e0e0e0;
 }
 
 /* HR/RR工具栏 */
 .vital-toolbar {
-  padding: 8px 7px;  /* 左右padding减少到7px，与track-toolbar一致 */
+  padding: 8px 15px;  /* 恢复v0.6的15px */
   background-color: #f0f7ff;
   border-bottom: 1px solid #d0e7ff;
 }
@@ -1078,7 +1078,7 @@ const formatTimestamp = (timestamp: number): string => {
 .vital-row {
   display: flex;
   align-items: center;
-  gap: 4px;  /* 缩小到4px */
+  gap: 6px;  /* 恢复v0.6的6px */
   margin-bottom: 6px;
 }
 
@@ -1100,13 +1100,13 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .realtime-btn {
-  margin-left: 8px;  /* Load和RealTime之间8px间距（缩小以适应容器） */
+  margin-left: 20px;  /* 恢复v0.6的20px */
 }
 
 .control-row {
   display: flex;
   align-items: center;
-  gap: 4px;  /* 缩小到4px */
+  gap: 6px;  /* 恢复v0.6的6px */
   margin-bottom: 8px;
 }
 
@@ -1144,7 +1144,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 90px;  /* 缩小到90px */
+  width: 105px;  /* 恢复v0.6的105px */
   background-color: white;
   font-family: monospace;
 }
@@ -1159,7 +1159,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 65px;  /* 缩小到65px */
+  width: 75px;  /* 恢复v0.6的75px */
   background-color: white;
 }
 
@@ -1185,7 +1185,7 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .time-input-wide {
-  width: 115px;  /* Start时间输入框（再缩小15px适应容器） */
+  width: 140px;  /* 恢复v0.6的140px（但保留精确到分钟的placeholder） */
 }
 
 .time-long-input {
@@ -1193,7 +1193,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 60px;  /* 时长输入框（扩大10px） */
+  width: 50px;  /* 恢复v0.6的50px */
   text-align: center;
   background-color: white;
 }
@@ -1296,8 +1296,8 @@ const formatTimestamp = (timestamp: number): string => {
   font-size: 12px;
   color: #ccc;
   font-style: italic;
-  min-width: 110px;  /* 缩小到110px */
-  max-width: 110px;
+  min-width: 140px;  /* 恢复v0.6的140px */
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1340,7 +1340,7 @@ const formatTimestamp = (timestamp: number): string => {
 .progress-label {
   font-size: 12px;
   color: #666;
-  margin-left: 4px;  /* 缩小到4px */
+  margin-left: 12px;  /* 恢复v0.6的12px */
   white-space: nowrap;
 }
 
@@ -1479,13 +1479,13 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 80px;  /* 缩小到80px */
+  width: 95px;  /* 恢复v0.6的95px */
   background-color: white;
 }
 
 .file-display-box-sm {
   flex: 1;
-  max-width: 115px;  /* 再缩小到115px */
+  max-width: 160px;  /* 恢复v0.6的160px */
   padding: 4px 8px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
@@ -1512,7 +1512,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 75px;  /* 缩小到75px */
+  width: 90px;  /* 恢复v0.6的90px */
   background-color: white;
 }
 
@@ -1538,7 +1538,7 @@ const formatTimestamp = (timestamp: number): string => {
 
 .bg-toggle .bg-text-fixed {
   display: inline-block;
-  width: 38px;  /* 缩小到38px */
+  width: 42px;  /* 恢复v0.6的42px */
   text-align: left;
   font-weight: 500;
   margin-right: 0;
@@ -1553,7 +1553,7 @@ const formatTimestamp = (timestamp: number): string => {
 
 /* 状态显示区域 */
 .status-display {
-  padding: 8px 7px;  /* 左右padding减少到7px */
+  padding: 8px 15px;  /* 恢复v0.6的15px */
   background-color: #f9f9f9;
   border-top: 1px solid #e0e0e0;
   font-size: 12px;

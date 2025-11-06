@@ -525,13 +525,6 @@ const handleSliderChange = () => {
   drawWaveform();
 };
 
-// 格式化时间（秒 → MM:SS）
-const formatTime = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-};
-
 // 格式化绝对时间（epoch秒 → HH:MM:SS）
 const formatAbsoluteTime = (epochSeconds: number): string => {
   const date = new Date(epochSeconds * 1000);
@@ -556,7 +549,7 @@ onMounted(() => {
 .hrrr-waveform {
   position: relative;
   border-radius: 4px;
-  padding: 0 7px;  /* 左右7px与工具栏对齐 */
+  padding: 0 15px;  /* 恢复15px与v0.6的工具栏对齐 */
   border: none;
   width: 100%;
   box-sizing: border-box;
