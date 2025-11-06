@@ -108,6 +108,28 @@ const RR_THRESHOLDS = {
   // l1: 0-7, 27+
 };
 
+// 根据HR值获取颜色
+const getHRColor = (value: number): string => {
+  if (value >= HR_THRESHOLDS.normal.min && value <= HR_THRESHOLDS.normal.max) {
+    return '#1890ff';  // Normal: 蓝色
+  } else if (value >= HR_THRESHOLDS.l2.min && value <= HR_THRESHOLDS.l2.max) {
+    return '#fadb14';  // L2: 黄色
+  } else {
+    return '#ff4d4f';  // L1: 红色
+  }
+};
+
+// 根据RR值获取颜色
+const getRRColor = (value: number): string => {
+  if (value >= RR_THRESHOLDS.normal.min && value <= RR_THRESHOLDS.normal.max) {
+    return '#52c41a';  // Normal: 绿色
+  } else if (value >= RR_THRESHOLDS.l2.min && value <= RR_THRESHOLDS.l2.max) {
+    return '#fadb14';  // L2: 黄色
+  } else {
+    return '#ff4d4f';  // L1: 红色
+  }
+};
+
 // 绘制波形
 const drawWaveform = () => {
   const canvas = canvasRef.value;
@@ -318,43 +340,77 @@ const drawWaveform = () => {
     displayData = props.data.slice(-300);
   }
   
-  // 绘制HR曲线（蓝色）
-  ctx.strokeStyle = '#1890ff';
+  // 绘制HR曲线（根据值动态变色）
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  let hasHRData = false;
+  let prevHRColor = '';
+  let hrPathStarted = false;
+  let lastHRPoint: { x: number; y: number } | null = null;
+  
   displayData.forEach((point, index) => {
     if (point.hr && point.hr > 0) {
       const x = indexToX(index);
       const y = valueToY(point.hr);
-      if (!hasHRData) {
-        ctx.moveTo(x, y);
-        hasHRData = true;
+      const color = getHRColor(point.hr);
+      
+      // 颜色变化或首次绘制时，开始新路径
+      if (color !== prevHRColor) {
+        if (hrPathStarted) {
+          ctx.stroke();  // 结束上一段
+        }
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        // 从上一个点开始，保持连续
+        if (lastHRPoint) {
+          ctx.moveTo(lastHRPoint.x, lastHRPoint.y);
+          ctx.lineTo(x, y);
+        } else {
+          ctx.moveTo(x, y);
+        }
+        prevHRColor = color;
+        hrPathStarted = true;
       } else {
         ctx.lineTo(x, y);
       }
+      lastHRPoint = { x, y };
     }
   });
-  if (hasHRData) ctx.stroke();
+  if (hrPathStarted) ctx.stroke();
   
-  // 绘制RR曲线（绿色）
-  ctx.strokeStyle = '#52c41a';
+  // 绘制RR曲线（根据值动态变色）
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  let hasRRData = false;
+  let prevRRColor = '';
+  let rrPathStarted = false;
+  let lastRRPoint: { x: number; y: number } | null = null;
+  
   displayData.forEach((point, index) => {
     if (point.rr && point.rr > 0) {
       const x = indexToX(index);
       const y = valueToY(point.rr);
-      if (!hasRRData) {
-        ctx.moveTo(x, y);
-        hasRRData = true;
+      const color = getRRColor(point.rr);
+      
+      // 颜色变化或首次绘制时，开始新路径
+      if (color !== prevRRColor) {
+        if (rrPathStarted) {
+          ctx.stroke();  // 结束上一段
+        }
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        // 从上一个点开始，保持连续
+        if (lastRRPoint) {
+          ctx.moveTo(lastRRPoint.x, lastRRPoint.y);
+          ctx.lineTo(x, y);
+        } else {
+          ctx.moveTo(x, y);
+        }
+        prevRRColor = color;
+        rrPathStarted = true;
       } else {
         ctx.lineTo(x, y);
       }
+      lastRRPoint = { x, y };
     }
   });
-  if (hasRRData) ctx.stroke();
+  if (rrPathStarted) ctx.stroke();
   
   // 历史模式：绘制当前时间指示线
   if (props.mode === 'history' && currentTime.value > 0) {
