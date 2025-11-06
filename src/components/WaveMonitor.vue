@@ -169,7 +169,7 @@
           type="text" 
           v-model="vitalTimeInput" 
           class="time-input time-input-wide"
-          placeholder="2025110423:27:42"
+          placeholder="2025110423:27"
         />
         
         <label class="inline-label">～</label>
@@ -178,7 +178,7 @@
           v-model="vitalTimeLong" 
           @blur="limitVitalTimeLong"
           class="time-long-input"
-          placeholder="5-30"
+          placeholder="5-120"
         />
         <span class="unit">mins</span>
         
@@ -590,7 +590,7 @@ const limitTimeLong = () => {
   }
 };
 
-// 限制Vital时长输入范围（5-30分钟）
+// 限制Vital时长输入范围（5-120分钟，最长2小时）
 const limitVitalTimeLong = () => {
   if (!vitalTimeLong.value) {
     vitalTimeLong.value = 5;  // 默认5分钟
@@ -599,8 +599,8 @@ const limitVitalTimeLong = () => {
   const num = parseInt(String(vitalTimeLong.value));
   if (isNaN(num) || num < 5) {
     vitalTimeLong.value = 5;
-  } else if (num > 30) {
-    vitalTimeLong.value = 30;
+  } else if (num > 120) {
+    vitalTimeLong.value = 120;
   } else {
     vitalTimeLong.value = num;
   }
@@ -979,7 +979,7 @@ const calculateTimeRange = () => {
   }
 };
 
-// 解析时间字符串
+// 解析时间字符串（支持精确到分钟或秒）
 const parseTimeString = (timeStr: string): number => {
   const cleaned = timeStr.replace(/\s+/g, '');
   
@@ -988,7 +988,10 @@ const parseTimeString = (timeStr: string): number => {
   const day = parseInt(cleaned.substring(6, 8));
   
   const timepart = cleaned.substring(8);
-  const [hours, minutes, seconds] = timepart.split(':').map(s => parseInt(s) || 0);
+  const parts = timepart.split(':').map(s => parseInt(s) || 0);
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
+  const seconds = parts[2] || 0;  // 如果没有秒，默认为0
   
   const date = new Date(year, month, day, hours, minutes, seconds);
   return Math.floor(date.getTime() / 1000);
