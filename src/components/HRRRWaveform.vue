@@ -39,9 +39,9 @@
         @input="handleSliderChange"
       />
       <div class="time-display">
-        <span>{{ formatTime(currentTime) }}</span>
+        <span>{{ formatAbsoluteTime(startEpoch + currentTime) }}</span>
         <span>/</span>
-        <span>{{ formatTime(totalDuration) }}</span>
+        <span>{{ formatAbsoluteTime(startEpoch + totalDuration) }}</span>
       </div>
     </div>
   </div>
@@ -93,6 +93,9 @@ const totalDuration = computed(() => {
   }
   return 0;
 });
+
+// 起始epoch（用于template访问）
+const startEpoch = computed(() => props.startEpoch || 0);
 
 // HR报警阈值
 const HR_THRESHOLDS = {
@@ -350,77 +353,35 @@ const drawWaveform = () => {
     displayData = props.data.slice(-300);
   }
   
-  // 绘制HR曲线（根据值动态变色）
-  ctx.lineWidth = 2;
-  let prevHRColor = '';
-  let hrPathStarted = false;
-  let lastHRPoint: { x: number; y: number } | null = null;
-  
+  // 绘制HR数据点（根据值动态变色）
   displayData.forEach((point, index) => {
     if (point.hr && point.hr > 0) {
       const x = indexToX(index);
       const y = valueToY(point.hr);
       const color = getHRColor(point.hr);
       
-      // 颜色变化或首次绘制时，开始新路径
-      if (color !== prevHRColor) {
-        if (hrPathStarted) {
-          ctx.stroke();  // 结束上一段
-        }
-        ctx.strokeStyle = color;
-        ctx.beginPath();
-        // 从上一个点开始，保持连续
-        if (lastHRPoint) {
-          ctx.moveTo(lastHRPoint.x, lastHRPoint.y);
-          ctx.lineTo(x, y);
-        } else {
-          ctx.moveTo(x, y);
-        }
-        prevHRColor = color;
-        hrPathStarted = true;
-      } else {
-        ctx.lineTo(x, y);
-      }
-      lastHRPoint = { x, y };
+      // 绘制圆点
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);  // 半径3px的圆点
+      ctx.fill();
     }
   });
-  if (hrPathStarted) ctx.stroke();
   
-  // 绘制RR曲线（根据值动态变色）
-  ctx.lineWidth = 2;
-  let prevRRColor = '';
-  let rrPathStarted = false;
-  let lastRRPoint: { x: number; y: number } | null = null;
-  
+  // 绘制RR数据点（根据值动态变色）
   displayData.forEach((point, index) => {
     if (point.rr && point.rr > 0) {
       const x = indexToX(index);
       const y = valueToY(point.rr);
       const color = getRRColor(point.rr);
       
-      // 颜色变化或首次绘制时，开始新路径
-      if (color !== prevRRColor) {
-        if (rrPathStarted) {
-          ctx.stroke();  // 结束上一段
-        }
-        ctx.strokeStyle = color;
-        ctx.beginPath();
-        // 从上一个点开始，保持连续
-        if (lastRRPoint) {
-          ctx.moveTo(lastRRPoint.x, lastRRPoint.y);
-          ctx.lineTo(x, y);
-        } else {
-          ctx.moveTo(x, y);
-        }
-        prevRRColor = color;
-        rrPathStarted = true;
-      } else {
-        ctx.lineTo(x, y);
-      }
-      lastRRPoint = { x, y };
+      // 绘制圆点
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);  // 半径3px的圆点
+      ctx.fill();
     }
   });
-  if (rrPathStarted) ctx.stroke();
   
   // 历史模式：绘制当前时间指示线
   if (props.mode === 'history' && currentTime.value > 0) {
@@ -469,10 +430,19 @@ const handleMouseMove = (e: MouseEvent) => {
   
   if (index >= 0 && index < props.data.length) {
     const point = props.data[index];
+    
+    // 计算绝对时间
+    const absoluteEpoch = (props.startEpoch || 0) + point.timestamp;
+    const absoluteTime = formatAbsoluteTime(absoluteEpoch);
+    
+    // 调试悬停信息
+    console.log(`🖱️ Hover: time=${absoluteTime}, hr=${point.hr}, rr=${point.rr}, ` +
+                `hrColor=${getHRColor(point.hr || 0)}, rrColor=${getRRColor(point.rr || 0)}`);
+    
     hoverInfo.value = {
       x: x + 10,
       y: y - 60,
-      time: formatTime(point.timestamp - props.data[0].timestamp),
+      time: absoluteTime,  // 使用绝对时间 HH:MM:SS
       hr: point.hr || 0,
       rr: point.rr || 0
     };
@@ -494,6 +464,15 @@ const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
+
+// 格式化绝对时间（epoch秒 → HH:MM:SS）
+const formatAbsoluteTime = (epochSeconds: number): string => {
+  const date = new Date(epochSeconds * 1000);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
 };
 
 // 监听数据变化
