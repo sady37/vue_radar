@@ -1082,7 +1082,7 @@ const formatTimestamp = (timestamp: number): string => {
 .vital-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;  /* 缩小到4px */
   margin-bottom: 6px;
 }
 
@@ -1104,13 +1104,13 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .realtime-btn {
-  margin-left: 20px;  /* Load和RealTime之间20px间距 */
+  margin-left: 8px;  /* Load和RealTime之间8px间距（缩小以适应容器） */
 }
 
 .control-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;  /* 缩小到4px */
   margin-bottom: 8px;
 }
 
@@ -1148,7 +1148,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 105px;
+  width: 90px;  /* 缩小到90px */
   background-color: white;
   font-family: monospace;
 }
@@ -1163,7 +1163,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 12px;
-  width: 75px;
+  width: 65px;  /* 缩小到65px */
   background-color: white;
 }
 
@@ -1189,7 +1189,7 @@ const formatTimestamp = (timestamp: number): string => {
 }
 
 .time-input-wide {
-  width: 130px;  /* Start时间输入框（精确到分钟，缩小10px） */
+  width: 115px;  /* Start时间输入框（再缩小15px适应容器） */
 }
 
 .time-long-input {
@@ -1300,8 +1300,8 @@ const formatTimestamp = (timestamp: number): string => {
   font-size: 12px;
   color: #ccc;
   font-style: italic;
-  min-width: 140px;
-  max-width: 140px;
+  min-width: 110px;  /* 缩小到110px */
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1344,7 +1344,7 @@ const formatTimestamp = (timestamp: number): string => {
 .progress-label {
   font-size: 12px;
   color: #666;
-  margin-left: 12px;
+  margin-left: 4px;  /* 缩小到4px */
   white-space: nowrap;
 }
 
@@ -1483,13 +1483,13 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 95px;
+  width: 80px;  /* 缩小到80px */
   background-color: white;
 }
 
 .file-display-box-sm {
   flex: 1;
-  max-width: 160px;
+  max-width: 130px;  /* 缩小到130px */
   padding: 4px 8px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
@@ -1516,7 +1516,7 @@ const formatTimestamp = (timestamp: number): string => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   font-size: 11px;
-  width: 90px;
+  width: 75px;  /* 缩小到75px */
   background-color: white;
 }
 
