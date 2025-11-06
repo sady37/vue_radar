@@ -687,7 +687,8 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
           reflectivity: getReflectivity(canvasStore.pendingObjectType || 'Wall')
         },
         device: {
-          category: 'structure'
+          category: 'furniture',  // 改为furniture，使其显示几何属性
+          type: canvasStore.pendingObjectType || 'Wall'
         },
         interactive: {
           selected: false,
@@ -732,7 +733,8 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
           reflectivity: getReflectivity(canvasStore.pendingObjectType || 'Other')
         },
         device: {
-          category: 'furniture'
+          category: 'furniture',
+          type: canvasStore.pendingObjectType || 'Furniture'
         },
         interactive: {
           selected: false,
@@ -768,7 +770,8 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
           reflectivity: getReflectivity(canvasStore.pendingObjectType || 'Other')
         },
         device: {
-          category: 'furniture'
+          category: 'furniture',
+          type: canvasStore.pendingObjectType || 'Furniture'
         },
         interactive: {
           selected: false,
@@ -819,7 +822,8 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
           reflectivity: getReflectivity(canvasStore.pendingObjectType || 'Other')
         },
         device: {
-          category: 'furniture'
+          category: 'furniture',
+          type: canvasStore.pendingObjectType || 'Furniture'
         },
         interactive: {
           selected: false,
@@ -892,26 +896,36 @@ const handleCanvasClick = (event: MouseEvent) => {
           isOnline: true,
           communication: 'wifi',
           // 雷达设备：初始化radar配置（包括边界、高度、信号区域等）
-          ...(type === 'Radar' ? {
-            radar: {
-              installModel: 'ceiling',  // 默认安装模式
-              workModel: 'vital',        // 默认工作模式
-              hfov: RADAR_DEFAULT_CONFIG.ceiling.hfov,
-              vfov: RADAR_DEFAULT_CONFIG.ceiling.vfov,
-              boundary: { ...RADAR_DEFAULT_CONFIG.ceiling.boundary },
-              signalRadius: RADAR_DEFAULT_CONFIG.ceiling.signalRadius,
-              signalAngle: RADAR_DEFAULT_CONFIG.ceiling.signalAngle,
-              showBoundary: true,  // 默认显示边界
-              showSignal: false
-            }
-          } : {})
+          ...(type === 'Radar' ? (() => {
+            const template = (window as any).__toolbarDeviceTemplate?.();
+            const installModel = (template?.installModel || 'ceiling') as 'ceiling' | 'wall' | 'corn';
+            const config = RADAR_DEFAULT_CONFIG[installModel];
+            return {
+              radar: {
+                installModel: installModel,
+                workModel: 'vital',
+                hfov: config.hfov,
+                vfov: config.vfov,
+                boundary: { ...config.boundary },
+                signalRadius: config.signalRadius,
+                showBoundary: true,
+                showSignal: false
+              }
+            };
+          })() : {})
         }
       },
       interactive: {
         selected: true,
         locked: false
       },
-      angle: 0
+      angle: type === 'Radar' 
+        ? (() => {
+            const template = (window as any).__toolbarDeviceTemplate?.();
+            const installModel = (template?.installModel || 'ceiling') as 'ceiling' | 'wall' | 'corn';
+            return RADAR_DEFAULT_CONFIG[installModel].Rotation;
+          })()
+        : 0
     };
     
     objectsStore.addObject(newDevice);
@@ -1987,19 +2001,18 @@ const drawRadarBoundaries = (ctx: CanvasRenderingContext2D) => {
         y: v.y * scale.value
       }));
       
-      // 重新排序顶点为：左上、右上、右下、左下
-      // 根据getRadarBoundaryVertices返回的顺序：[右上, 左上, 右下, 左下]
-      const topLeft = canvasVertices[1];    // 左上
-      const topRight = canvasVertices[0];   // 右上
-      const bottomRight = canvasVertices[2]; // 右下
-      const bottomLeft = canvasVertices[3];  // 左下
-      
-      // 绘制矩形边界线（只画四条边，不闭合，不画对角线）
+      // 绘制边界线（所有模式都是矩形）
       ctx.save();
       ctx.strokeStyle = '#1890ff'; // 边界用蓝色
       ctx.lineWidth = 2;
       ctx.setLineDash([8, 4]); // 虚线
       ctx.globalAlpha = 0.6; // 半透明
+      
+      // 所有模式都是矩形：[右上, 左上, 右下, 左下]
+      const topLeft = canvasVertices[1];    // 左上
+      const topRight = canvasVertices[0];   // 右上
+      const bottomRight = canvasVertices[2]; // 右下
+      const bottomLeft = canvasVertices[3];  // 左下
       
       ctx.beginPath();
       // 上边：左上 -> 右上
@@ -2011,7 +2024,6 @@ const drawRadarBoundaries = (ctx: CanvasRenderingContext2D) => {
       ctx.lineTo(bottomLeft.x, bottomLeft.y);
       // 左边：左下 -> 左上
       ctx.lineTo(topLeft.x, topLeft.y);
-      // 不调用closePath()，这样就不会画对角线
       ctx.stroke();
       
       ctx.restore();
@@ -2026,7 +2038,7 @@ const drawRadarBoundaries = (ctx: CanvasRenderingContext2D) => {
   });
 };
 
-// 绘制雷达信号区域
+// 绘制雷达信号区域（统一旋转逻辑 - 所有对象使用相同的旋转方式）
 const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, originX: number) => {
   const installModel = radar.device?.iot?.radar?.installModel || 'ceiling';
   const radarConfig = radar.device?.iot?.radar;
@@ -2039,6 +2051,16 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
     y: radarData.y
   };
   
+  // 画布位置
+  const canvasPos = {
+    x: originX + radarPos.x * scale.value,
+    y: radarPos.y * scale.value
+  };
+  
+  // 统一的旋转角度（逆时针为正） - 所有对象都用这个角度
+  const rotationAngle = radar.angle || 0;
+  const rotationRad = (rotationAngle * Math.PI) / 180;
+  
   ctx.save();
   ctx.strokeStyle = '#ff6b6b'; // 信号区域用红色
   ctx.lineWidth = 2;
@@ -2048,51 +2070,38 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
   
   try {
     if (installModel === 'ceiling') {
-      // Ceiling模式：通过高度、hfov/vfov计算投影边界（矩形），同时受信号半径限制
-      const hfov = radarConfig?.hfov || 140; // 水平视场角
-      const vfov = radarConfig?.vfov || 120; // 垂直视场角
-      const signalRadius = radarConfig?.signalRadius || 500; // 信号半径限制
+      // Ceiling模式：矩形信号区
+      const hfov = radarConfig?.hfov || 140;
+      const vfov = radarConfig?.vfov || 120;
+      const signalRadius = radarConfig?.signalRadius || 500;
       
-      // 计算投影到地面的矩形尺寸
-      // 水平方向投影宽度 = 2 * height * tan(hfov/2)
-      // 垂直方向投影长度 = 2 * height * tan(vfov/2)
+      // 计算投影矩形尺寸
       const hfovRad = (hfov * Math.PI) / 180;
       const vfovRad = (vfov * Math.PI) / 180;
       let projectionWidth = 2 * radarHeight * Math.tan(hfovRad / 2);
       let projectionLength = 2 * radarHeight * Math.tan(vfovRad / 2);
       
-      // 受信号半径限制：投影不能超过信号半径
-      // 矩形对角线长度不能超过 signalRadius
+      // 受信号半径限制
       const diagonalLength = Math.sqrt(projectionWidth * projectionWidth + projectionLength * projectionLength) / 2;
       if (diagonalLength > signalRadius) {
-        // 按比例缩小到信号半径范围内
         const scale_factor = signalRadius / diagonalLength;
         projectionWidth *= scale_factor;
         projectionLength *= scale_factor;
       }
       
-      const canvasPos = {
-        x: originX + radarPos.x * scale.value,
-        y: radarPos.y * scale.value
-      };
-      
-      // 绘制投影矩形（中心在雷达位置，考虑旋转）
       const halfWidth = projectionWidth / 2;
       const halfLength = projectionLength / 2;
       
-      // 获取雷达旋转角度
-      const angle = radar.angle || 0;
-      const angleRad = (angle * Math.PI) / 180;
-      
-      // 计算旋转后的4个角点（标准逆时针旋转矩阵）
+      // 信号区需要与boundary保持一致（boundary因坐标映射使用-angle）
+      const negRotationRad = -rotationRad;
       const corners = [
         { x: -halfWidth, y: -halfLength }, // 左上
         { x: halfWidth, y: -halfLength },  // 右上
         { x: halfWidth, y: halfLength },   // 右下
         { x: -halfWidth, y: halfLength }   // 左下
       ].map(corner => ({
-        x: canvasPos.x + (corner.x * Math.cos(angleRad) - corner.y * Math.sin(angleRad)) * scale.value,
-        y: canvasPos.y + (corner.x * Math.sin(angleRad) + corner.y * Math.cos(angleRad)) * scale.value
+        x: canvasPos.x + (corner.x * Math.cos(negRotationRad) - corner.y * Math.sin(negRotationRad)) * scale.value,
+        y: canvasPos.y + (corner.x * Math.sin(negRotationRad) + corner.y * Math.cos(negRotationRad)) * scale.value
       }));
       
       ctx.beginPath();
@@ -2104,68 +2113,18 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
       ctx.stroke();
       ctx.fill();
       
-    } else if (installModel === 'wall') {
-      // Wall模式：扇形，半径为signalRadius，夹角为hfov
-      const angle = radar.angle || 0; // 雷达旋转角度（逆时针为正）
-      const angleRad = (angle * Math.PI) / 180; // 正角度，逆时针
-      const hfov = radarConfig?.hfov || 140; // 使用hfov作为扇形夹角
-      const signalRadius = radarConfig?.signalRadius || 500; // 信号区域半径
-      const signalAngleRad = (hfov * Math.PI) / 180; // 扇形角度（弧度）
+    } else {
+      // Wall/Corn模式：扇形信号区
+      const hfov = radarConfig?.hfov || (installModel === 'corn' ? 90 : 140);
+      const signalRadius = radarConfig?.signalRadius || (installModel === 'corn' ? 800 : 500);
+      const hfovRad = (hfov * Math.PI) / 180;
       
-      const canvasPos = {
-        x: originX + radarPos.x * scale.value,
-        y: radarPos.y * scale.value
-      };
-      
-      // 扇形中心角度
-      // Canvas坐标系：0°=右，90°=下，180°=左，270°=上
-      // 雷达默认向下 = 90° = Math.PI/2
-      // 逆时针旋转angle° → 90° - angle°
-      const centerAngle = Math.PI / 2 - angleRad; // 向下基准，逆时针旋转用减法
-      const startAngle = centerAngle - signalAngleRad / 2;
-      const endAngle = centerAngle + signalAngleRad / 2;
-      
-      ctx.beginPath();
-      ctx.moveTo(canvasPos.x, canvasPos.y);
-      ctx.arc(canvasPos.x, canvasPos.y, signalRadius * scale.value, startAngle, endAngle);
-      ctx.closePath();
-      ctx.stroke();
-      ctx.fill();
-      
-    } else if (installModel === 'corn') {
-      // Corn模式：90度扇形，半径为signalRadius
-      // leftH>0, rightH=0：扇形在左边；leftH=0, rightH>0：扇形在右边
-      const signalRadius = radarConfig?.signalRadius || 900; // 信号区域半径
-      const signalAngleRad = (90 * Math.PI) / 180; // 固定90度扇形
-      
-      const boundary = radarConfig?.boundary;
-      const leftH = boundary?.leftH || 0;
-      const rightH = boundary?.rightH || 0;
-      
-      const canvasPos = {
-        x: originX + radarPos.x * scale.value,
-        y: radarPos.y * scale.value
-      };
-      
-      // 考虑雷达的旋转角度（逆时针为正）
-      const radarAngle = radar.angle || 0;
-      const radarAngleRad = (radarAngle * Math.PI) / 180; // 正角度，逆时针
-      
-      let centerAngle: number;
-      if (leftH > 0 && rightH === 0) {
-        // 左边：扇形向左下方向（Canvas坐标系：135°）
-        // 逆时针旋转angle° → 135° - angle°
-        centerAngle = (3 * Math.PI / 4) - radarAngleRad; // 左下基准，逆时针旋转用减法
-      } else if (leftH === 0 && rightH > 0) {
-        // 右边：扇形向右下方向（Canvas坐标系：45°）
-        centerAngle = (Math.PI / 4) - radarAngleRad; // 右下基准，逆时针旋转用减法
-      } else {
-        // 默认：左边
-        centerAngle = (3 * Math.PI / 4) - radarAngleRad;
-      }
-      
-      const startAngle = centerAngle - signalAngleRad / 2;
-      const endAngle = centerAngle + signalAngleRad / 2;
+      // 信号区需要与boundary保持一致（boundary因坐标映射使用-angle）
+      // Wall和Corn默认都朝下（90度）
+      const baseDirection = Math.PI / 2;
+      const finalDirection = baseDirection - rotationRad; // 使用-angle保持一致
+      const startAngle = finalDirection - hfovRad / 2;
+      const endAngle = finalDirection + hfovRad / 2;
       
       ctx.beginPath();
       ctx.moveTo(canvasPos.x, canvasPos.y);

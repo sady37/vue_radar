@@ -59,19 +59,26 @@ export function toCanvasCoordinate(radarPoint: RadarPoint, radar: BaseObject): P
   }
   const radarCenter = radarGeometry.data;
 
-  // 2. 获取雷达旋转角度（全局统一：正角度，逆时针为正）
+  // 2. 坐标系映射：h/v → x/y（不含旋转）
+  // 雷达坐标系：H轴左为正，V轴下为正
+  // 画布坐标系：X轴右为正，Y轴下为正
+  // 因此：x = -h, y = v
+  const localX = -radarPoint.h;  // H左正 → X右正，取负
+  const localY = radarPoint.v;   // V下正 → Y下正，保持
+
+  // 3. 应用旋转
+  // 关键：因为X=-H存在镜像，旋转方向需要反转
+  // 在画布上逆时针旋转angle° = 在映射前的坐标系中顺时针旋转angle°
+  // 因此使用 -angle
   const angle = radar.angle || 0;
-  const angleRad = (angle * Math.PI) / 180;
+  const angleRad = -(angle * Math.PI) / 180;  // 注意负号
+  const rotatedX = localX * Math.cos(angleRad) - localY * Math.sin(angleRad);
+  const rotatedY = localX * Math.sin(angleRad) + localY * Math.cos(angleRad);
 
-  // 3. 应用旋转矩阵（补偿H轴方向）
-  // 注意：Canvas的X轴右为正，雷达H轴左为正，故旋转矩阵需要调整符号
-  const rotatedX = radarPoint.h * Math.cos(angleRad) + radarPoint.v * Math.sin(angleRad);
-  const rotatedY = -radarPoint.h * Math.sin(angleRad) + radarPoint.v * Math.cos(angleRad);
-
-  // 4. 平移到画布坐标系原点
+  // 4. 平移到雷达中心
   return {
-    x: radarCenter.x - rotatedX, // X轴方向补偿（雷达H左正 → 画布X左正）
-    y: radarCenter.y + rotatedY, // Y轴方向一致（雷达V下正 → 画布Y下正）
+    x: radarCenter.x + rotatedX,
+    y: radarCenter.y + rotatedY,
     z: radarCenter.z || 0
   };
 }
@@ -87,17 +94,24 @@ export function toRadarCoordinate(canvasX: number, canvasY: number, radar: BaseO
   }
   const radarCenter = radarGeometry.data;
 
-  // 2. 获取雷达旋转角度（全局统一：正角度，逆时针为正）
+  // 2. 平移到雷达本地坐标（相对于雷达中心）
+  const localX = canvasX - radarCenter.x;
+  const localY = canvasY - radarCenter.y;
+
+  // 3. 应用逆旋转
+  // 关键：因为X=-H存在镜像，旋转方向需要反转
+  // 逆旋转也需要用-angle，然后取逆操作
   const angle = radar.angle || 0;
-  const angleRad = (angle * Math.PI) / 180;
+  const angleRad = -(angle * Math.PI) / 180;  // 注意负号
+  const unrotatedX = localX * Math.cos(angleRad) + localY * Math.sin(angleRad);
+  const unrotatedY = -localX * Math.sin(angleRad) + localY * Math.cos(angleRad);
 
-  // 3. 平移到雷达原点
-  const dx = radarCenter.x - canvasX; // 补偿X轴方向
-  const dy = canvasY - radarCenter.y; // Y轴方向一致
-
-  // 4. 应用逆旋转矩阵（补偿H轴方向）
-  const h = dx * Math.cos(angleRad) - dy * Math.sin(angleRad);
-  const v = dx * Math.sin(angleRad) + dy * Math.cos(angleRad);
+  // 4. 坐标系映射：x/y → h/v
+  // 画布坐标系：X轴右为正，Y轴下为正
+  // 雷达坐标系：H轴左为正，V轴下为正
+  // 因此：h = -x, v = y
+  const h = -unrotatedX;  // X右正 → H左正，取负
+  const v = unrotatedY;   // Y下正 → V下正，保持
 
   return { 
     h, 
@@ -107,9 +121,12 @@ export function toRadarCoordinate(canvasX: number, canvasY: number, radar: BaseO
 }
 
 /**
- * 获取雷达边界在画布坐标系中的4个顶点
+ * 获取雷达边界在画布坐标系中的4个顶点（所有模式都是矩形）
+ * - Ceiling模式：雷达在中心，使用leftH/rightH/frontV/rearV
+ * - Wall模式：雷达在后边（rearV=0），使用leftH/rightH/frontV
+ * - Corn模式：雷达在顶点，只使用leftH和rightH（矩形长宽），矩形顶点=(0,0),(leftH,0),(leftH,rightH),(0,rightH)
  */
-export function getRadarBoundaryVertices(radar: BaseObject): [Point, Point, Point, Point] {
+export function getRadarBoundaryVertices(radar: BaseObject): Point[] {
   // 1. 获取雷达配置
   const iotConfig = radar.device.iot;
   const radarConfig = iotConfig?.radar;
@@ -130,54 +147,34 @@ export function getRadarBoundaryVertices(radar: BaseObject): [Point, Point, Poin
       { h: boundary.leftH, v: boundary.frontV, z: 0 }       // 左下
     ];
   } else if (installModel === 'corn') {
-    // Corn模式：wall的变形，雷达在矩形的一个角（墙角安装）
-    // 总是安装在墙面，rearV=0（后方是墙面）
-    // 如果左侧有墙，leftH=0；如果右侧有墙，rightH=0
-    // 雷达可能在矩形的任意一角（左上、右上、左下、右下）
-    // 
-    // 根据leftH和rightH判断雷达所在角：
-    // - leftH>0, rightH=0: 雷达在左上角，矩形向右(+H方向)和向下(+V方向)延伸
-    // - leftH=0, rightH>0: 雷达在右上角，矩形向左(-H方向)和向下(+V方向)延伸
-    // - leftH>0, rightH>0: 这种情况实际是wall模式，但corn模式也支持（雷达在中间，但矩形从墙角开始）
+    // Corn模式：矩形边界，雷达在顶点(0,0)
+    // 只使用leftH和rightH（矩形的长宽），不使用frontV和rearV
+    // 矩形在雷达坐标系中需要旋转，使对角线朝向+V方向
     
     const leftH = boundary.leftH || 0;
     const rightH = boundary.rightH || 0;
-    const frontV = boundary.frontV || 0;
     
-    if (leftH > 0 && rightH === 0) {
-      // 左上角：雷达在(0,0)，矩形向右和向下延伸
-      radarVertices = [
-        { h: leftH, v: 0, z: 0 },                    // 右上（雷达向右leftH）
-        { h: 0, v: 0, z: 0 },                        // 左上（雷达位置）
-        { h: leftH, v: frontV, z: 0 },               // 右下（雷达向右leftH，向下frontV）
-        { h: 0, v: frontV, z: 0 }                    // 左下（雷达向下frontV）
-      ];
-    } else if (leftH === 0 && rightH > 0) {
-      // 右上角：雷达在(0,0)，矩形向左和向下延伸
-      radarVertices = [
-        { h: 0, v: 0, z: 0 },                        // 右上（雷达位置）
-        { h: -rightH, v: 0, z: 0 },                 // 左上（雷达向左rightH）
-        { h: 0, v: frontV, z: 0 },                  // 右下（雷达向下frontV）
-        { h: -rightH, v: frontV, z: 0 }             // 左下（雷达向左rightH，向下frontV）
-      ];
-    } else if (leftH > 0 && rightH > 0) {
-      // 特殊情况：两个方向都有延伸（类似wall但更灵活），雷达在中间偏左或偏右
-      // 这里按leftH优先处理：雷达在左上角位置，但矩形可以延伸到左右两侧
-      radarVertices = [
-        { h: leftH, v: 0, z: 0 },                    // 右上（雷达向右leftH）
-        { h: -rightH, v: 0, z: 0 },                 // 左上（雷达向左rightH）
-        { h: leftH, v: frontV, z: 0 },               // 右下（雷达向右leftH，向下frontV）
-        { h: -rightH, v: frontV, z: 0 }             // 左下（雷达向左rightH，向下frontV）
-      ];
-    } else {
-      // 默认情况：leftH>0, rightH=0（左上角）
-      radarVertices = [
-        { h: leftH || 600, v: 0, z: 0 },
-        { h: 0, v: 0, z: 0 },
-        { h: leftH || 600, v: frontV || 600, z: 0 },
-        { h: 0, v: frontV || 600, z: 0 }
-      ];
-    }
+    // 对角线与+H轴的夹角
+    const diagonalAngle = Math.atan2(rightH, leftH);
+    
+    // 需要旋转的角度：使对角线朝向+V（90度）
+    // rotationNeeded = π/2 - diagonalAngle
+    const rotationNeeded = Math.PI / 2 - diagonalAngle;
+    
+    // 原始矩形4个顶点（未旋转）：
+    const originalVertices = [
+      { h: leftH, v: 0 },      // 顶点2
+      { h: 0, v: 0 },          // 顶点1（雷达）
+      { h: leftH, v: rightH }, // 顶点3（对角）
+      { h: 0, v: rightH }      // 顶点4
+    ];
+    
+    // 绕雷达位置(0,0)旋转矩形
+    radarVertices = originalVertices.map(v => ({
+      h: v.h * Math.cos(rotationNeeded) - v.v * Math.sin(rotationNeeded),
+      v: v.h * Math.sin(rotationNeeded) + v.v * Math.cos(rotationNeeded),
+      z: 0
+    }));
   } else {
     // Wall模式：雷达紧贴墙壁，rearV=0（墙面位置）
     radarVertices = [
@@ -193,8 +190,8 @@ export function getRadarBoundaryVertices(radar: BaseObject): [Point, Point, Poin
     toCanvasCoordinate(vertex, radar)
   );
   
-  // 5. 返回4个顶点
-  return canvasVertices as [Point, Point, Point, Point];
+  // 5. 返回顶点数组（3个或4个）
+  return canvasVertices;
 }
 
 

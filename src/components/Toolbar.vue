@@ -129,7 +129,7 @@
 
     <div class="divider"></div>
 
-    <div class="prop-section" v-if="selectedObject && !isIotDevice">
+    <div class="prop-section" v-if="shouldShowFurnitureProps">
       <!-- 第1行：Name Rotation:旋转角度 -->
       <div class="prop-row prop-row-name">
         <span>Name:</span>
@@ -148,13 +148,13 @@
             class="prop-num-xs" 
             :value="geometryProps.R"
             @input="updateGeometry('R', Number(($event.target as HTMLInputElement).value))"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
       </div>
       
       <!-- 第2行：线/矩形 Wid/Depth/Height 或 圆/sector radians/Radius/Height -->
-      <div class="prop-row prop-row-lwh" v-if="selectedObject.geometry.type === 'line' || selectedObject.geometry.type === 'rectangle'">
+      <div class="prop-row prop-row-lwh" v-if="!selectedObject || selectedObject.geometry.type === 'line' || selectedObject.geometry.type === 'rectangle'">
         <div class="prop-group">
           <span>Wid:</span>
           <input 
@@ -162,17 +162,17 @@
             class="prop-num-xs" 
             :value="geometryProps.L"
             @input="updateGeometry('L', Number(($event.target as HTMLInputElement).value))"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
-        <div class="prop-group" v-if="selectedObject.geometry.type === 'line' || selectedObject.geometry.type === 'rectangle'">
+        <div class="prop-group" v-if="!selectedObject || selectedObject.geometry.type === 'line' || selectedObject.geometry.type === 'rectangle'">
           <span>Deep:</span>
           <input 
             type="number" 
             class="prop-num-xs" 
             :value="geometryProps.W"
             @input="updateGeometry('W', Number(($event.target as HTMLInputElement).value))"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
         <div class="prop-group">
@@ -186,15 +186,15 @@
         </div>
       </div>
       
-      <div class="prop-row" v-if="selectedObject.geometry.type === 'circle' || selectedObject.geometry.type === 'sector'">
-        <div class="prop-group" v-if="selectedObject.geometry.type === 'sector'">
+      <div class="prop-row" v-if="!selectedObject || selectedObject.geometry.type === 'circle' || selectedObject.geometry.type === 'sector'">
+        <div class="prop-group" v-if="!selectedObject || selectedObject.geometry.type === 'sector'">
           <span>radians:</span>
           <input 
             type="number" 
             class="prop-num-sm" 
             :value="geometryProps.sector"
             @input="updateGeometry('sector', Number(($event.target as HTMLInputElement).value))"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
         <div class="prop-group">
@@ -204,7 +204,7 @@
             class="prop-num-sm" 
             :value="geometryProps.radius"
             @input="updateGeometry('radius', Number(($event.target as HTMLInputElement).value))"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
         <div class="prop-group">
@@ -226,7 +226,7 @@
             type="number" 
             class="prop-num-sm" 
             v-model.number="objReflect"
-            :disabled="!selectedObject"
+            :disabled="false"
           />
         </div>
         <label class="checkbox-label checkbox-boundary">
@@ -240,9 +240,9 @@
       </div>
     </div>
 
-    <div class="divider" v-if="!isIotDevice"></div>
+    <div class="divider" v-if="!shouldShowDeviceProps"></div>
 
-    <div class="prop-section" v-if="selectedObject && isIotDevice">
+    <div class="prop-section" v-if="shouldShowDeviceProps">
       <!-- IoT 设备统一属性 -->
       <div class="prop-row" style="gap: 20px;">
         <div class="prop-group" style="flex: 0 0 auto;">
@@ -254,9 +254,10 @@
             placeholder="Device" 
             v-model="objName"
             style="width: 100px;"
+            :disabled="!selectedObject"
           />
         </div>
-        <div class="prop-group" style="flex: 0 0 auto;">
+        <div class="prop-group" style="flex: 0 0 auto;" v-if="selectedObject">
           <span>Online:</span>
           <span class="online-indicator" :class="{ active: selectedObject.device?.iot?.isOnline }">●</span>
         </div>
@@ -269,17 +270,17 @@
           <div class="button-group">
             <button 
               class="mode-btn mode-btn-large" 
-              :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'ceiling' }"
+              :class="{ active: (selectedObject?.device?.iot?.radar?.installModel || deviceTemplate.installModel) === 'ceiling' }"
               @click="updateDeviceProp('installModel', 'ceiling')"
             >Ceiling</button>
             <button 
               class="mode-btn mode-btn-large" 
-              :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'wall' }"
+              :class="{ active: (selectedObject?.device?.iot?.radar?.installModel || deviceTemplate.installModel) === 'wall' }"
               @click="updateDeviceProp('installModel', 'wall')"
             >Wall</button>
             <button 
               class="mode-btn mode-btn-large" 
-              :class="{ active: selectedObject.device?.iot?.radar?.installModel === 'corn' }"
+              :class="{ active: (selectedObject?.device?.iot?.radar?.installModel || deviceTemplate.installModel) === 'corn' }"
               @click="updateDeviceProp('installModel', 'corn')"
             >Corn</button>
           </div>
@@ -532,6 +533,26 @@ const activeColor = ref<string | null>(null); // 默认不选择颜色（使用�
 const activeFurniture = ref<string | null>(null); // 当前选中的家具类型
 const activeDevice = ref<string | null>(null); // 当前选中的设备类型
 
+// 家具属性临时值（点击按钮时重置，只在当前绘制时使用）
+const furnitureTemplate = ref({
+  name: 'Bed',
+  rotation: 0,
+  width: 200,
+  depth: 100,
+  height: 0,
+  radius: 50,
+  sector: 90,
+  reflect: 50
+});
+
+// 设备属性临时值（点击按钮时重置，只在当前创建时使用）
+const deviceTemplate = ref({
+  name: 'Radar',
+  rotation: 0,
+  height: 300,
+  installModel: 'ceiling' as 'ceiling' | 'wall' | 'corn'
+});
+
 // 监听canvasStore的状态变化，当双击重置时，清除Toolbar的选中状态
 watch(
   () => [canvasStore.drawingMode, canvasStore.pendingObjectType, objectsStore.selectedId],
@@ -590,6 +611,7 @@ const getDrawingParams = () => ({
 
 // 全局导出（供 Canvas 访问）
 (window as any).__toolbarDrawingParams = getDrawingParams;
+(window as any).__toolbarDeviceTemplate = () => deviceTemplate.value;
 
 // 颜色映射
 const colorMap = {
@@ -616,9 +638,48 @@ const isIotDevice = computed(() => {
   return selectedObject.value?.device?.category === 'iot';
 });
 
-// 判断是否为雷达设备
+// 判断是否为雷达设备（选中的或按钮激活的）
 const isRadarDevice = computed(() => {
-  return isIotDevice.value && selectedObject.value?.typeName === 'Radar';
+  if (selectedObject.value) {
+    return isIotDevice.value && selectedObject.value.typeName === 'Radar';
+  }
+  return activeDevice.value === 'Radar';
+});
+
+// 判断是否为Sleepad设备（选中的或按钮激活的）
+const isSleepadDeviceActive = computed(() => {
+  if (selectedObject.value) {
+    return isIotDevice.value && selectedObject.value.typeName === 'Sleepad';
+  }
+  return activeDevice.value === 'Sleepad';
+});
+
+// 判断是否为Sensor设备（选中的或按钮激活的）
+const isSensorDeviceActive = computed(() => {
+  if (selectedObject.value) {
+    return isIotDevice.value && selectedObject.value.typeName === 'Sensor';
+  }
+  return activeDevice.value === 'Sensor';
+});
+
+// 判断是否应该显示家具属性面板（选中家具 或 点击了家具按钮）
+const shouldShowFurnitureProps = computed(() => {
+  // 如果有选中对象，显示家具属性（非IoT设备）
+  if (selectedObject.value) {
+    return !isIotDevice.value;
+  }
+  // 如果没有选中对象，但点击了家具按钮，也显示家具属性面板
+  return !!activeFurniture.value;
+});
+
+// 判断是否应该显示设备属性面板（选中设备 或 点击了设备按钮）
+const shouldShowDeviceProps = computed(() => {
+  // 如果有选中对象，显示设备属性（IoT设备）
+  if (selectedObject.value) {
+    return isIotDevice.value;
+  }
+  // 如果没有选中对象，但点击了设备按钮，也显示设备属性面板
+  return !!activeDevice.value;
 });
 
 // 是否可以绑定（bed/monitorBed或IoT设备）
@@ -690,21 +751,29 @@ const objName = computed({
   }
 });
 
-// 属性编辑 - Reflect（反射率） - 暂时存储在 visual 中
+// 属性编辑 - Reflect（反射率） - 从选中对象或模板获取
 const objReflect = computed({
-  get: () => (selectedObject.value?.visual as any)?.reflect || 50,
+  get: () => {
+    if (selectedObject.value) {
+      return (selectedObject.value.visual as any)?.reflect || 50;
+    }
+    return furnitureTemplate.value.reflect;
+  },
   set: (val: number) => {
     if (selectedObject.value) {
       objectsStore.updateObject(selectedObject.value.id, {
         visual: { ...selectedObject.value.visual, reflect: val } as any
       });
+    } else {
+      furnitureTemplate.value.reflect = val;
     }
   }
 });
 
-// 几何属性计算
+// 几何属性计算（从选中对象或模板获取）
 const geometryProps = computed(() => {
-  if (!selectedObject.value) return { L: 0, W: 0, H: 0, R: 0, radius: 0, sector: 360 };
+  // 如果有选中对象，使用对象的属性
+  if (selectedObject.value) {
   
   const geo = selectedObject.value.geometry;
   let L = 0, W = 0, H = 0, R = 0, radius = 0, sector = 360;
@@ -752,12 +821,24 @@ const geometryProps = computed(() => {
   
   R = selectedObject.value.angle || 0;
   
-  return { L: Math.round(L), W: Math.round(W), H, R: Math.round(R), radius: Math.round(radius), sector };
+    return { L: Math.round(L), W: Math.round(W), H, R: Math.round(R), radius: Math.round(radius), sector };
+  }
+  
+  // 如果没有选中对象，使用模板
+  return {
+    L: furnitureTemplate.value.width,
+    W: furnitureTemplate.value.depth,
+    H: furnitureTemplate.value.height,
+    R: furnitureTemplate.value.rotation,
+    radius: furnitureTemplate.value.radius,
+    sector: furnitureTemplate.value.sector
+  };
 });
 
-// 更新几何属性
+// 更新几何属性（更新选中对象或模板）
 const updateGeometry = (prop: string, value: number) => {
-  if (!selectedObject.value) return;
+  // 如果有选中对象，更新对象
+  if (selectedObject.value) {
   
   const obj = selectedObject.value;
   const geo = obj.geometry;
@@ -880,6 +961,21 @@ const updateGeometry = (prop: string, value: number) => {
       }
       break;
   }
+    return;
+  }
+  
+  // 如果没有选中对象，更新模板
+  if (prop === 'R') {
+    furnitureTemplate.value.rotation = value;
+  } else if (prop === 'L') {
+    furnitureTemplate.value.width = value;
+  } else if (prop === 'W') {
+    furnitureTemplate.value.depth = value;
+  } else if (prop === 'radius') {
+    furnitureTemplate.value.radius = value;
+  } else if (prop === 'sector') {
+    furnitureTemplate.value.sector = value;
+  }
 };
 
 // 绘图工具点击（切换模式）
@@ -980,6 +1076,18 @@ const selectFurniture = (type: string) => {
   // 清除当前对象的选中状态
   objectsStore.selectObject(null);
   
+  // 每次点击都重置为默认值（不保留上次修改）
+  furnitureTemplate.value = {
+    name: type,
+    rotation: 0,
+    width: type === 'Bed' ? 200 : type === 'Wall' ? 300 : 150,
+    depth: type === 'Bed' ? 100 : type === 'Wall' ? 5 : 100,
+    height: 0,
+    radius: 50,
+    sector: 90,
+    reflect: 50
+  };
+  
   // 根据家具类型自动选择绘图工具
   const toolMap: Record<string, string> = {
     'Bed': 'rect',
@@ -1021,6 +1129,23 @@ const selectFurniture = (type: string) => {
 const addDevice = (type: string) => {
   // 清除当前对象的选中状态
   objectsStore.selectObject(null);
+  
+  // 每次点击都重置为默认值（不保留上次修改）
+  if (type === 'Radar') {
+    deviceTemplate.value = {
+      name: 'Radar',
+      rotation: 0,
+      height: 300,
+      installModel: 'ceiling'
+    };
+  } else {
+    deviceTemplate.value = {
+      name: type,
+      rotation: 0,
+      height: 280,
+      installModel: 'ceiling'
+    };
+  }
   
   activeDevice.value = type; // 设置选中的设备
   activeFurniture.value = null; // 清除家具选中
@@ -1081,18 +1206,19 @@ const deleteObject = () => {
   }
 };
 
-// 更新设备属性
+// 更新设备属性（更新选中对象或模板）
 const updateDeviceProp = (prop: string, value: any) => {
-  if (!selectedObject.value || !selectedObject.value.device?.iot) return;
+  // 如果有选中对象，更新对象
+  if (selectedObject.value && selectedObject.value.device?.iot) {
   
   const iot = selectedObject.value.device.iot;
   
-  // 特殊处理：切换installModel时，应用默认配置（高度、边界等）
+  // 特殊处理：切换installModel时，应用默认配置（高度、边界、旋转角度等）
   if (prop === 'installModel' && isRadarDevice.value) {
     const defaultConfig = RADAR_DEFAULT_CONFIG[value as 'ceiling' | 'wall' | 'corn'];
     
     if (defaultConfig) {
-      // 更新高度（z坐标）
+      // 更新高度（z坐标）和旋转角度
       const geo = selectedObject.value.geometry;
       if (geo.type === 'point') {
         objectsStore.updateObject(selectedObject.value.id, {
@@ -1102,7 +1228,8 @@ const updateDeviceProp = (prop: string, value: any) => {
               ...geo.data,
               z: defaultConfig.height
             }
-          }
+          },
+          angle: defaultConfig.Rotation  // 同时更新旋转角度
         });
       }
       
@@ -1116,9 +1243,6 @@ const updateDeviceProp = (prop: string, value: any) => {
         // 信号区域配置（所有模式都有）
         ...('signalRadius' in defaultConfig ? {
           signalRadius: (defaultConfig as any).signalRadius
-        } : {}),
-        ...('signalAngle' in defaultConfig ? {
-          signalAngle: (defaultConfig as any).signalAngle
         } : {})
       };
       
@@ -1139,7 +1263,7 @@ const updateDeviceProp = (prop: string, value: any) => {
         }
       });
       
-      console.log(`🔧 切换雷达模式为 ${value}，已应用默认配置:`, defaultConfig);
+      console.log(`🔧 切换雷达模式为 ${value}，已应用默认配置（包括旋转角度${defaultConfig.Rotation}°）:`, defaultConfig);
       return;
     }
   }
@@ -1192,6 +1316,20 @@ const updateDeviceProp = (prop: string, value: any) => {
   }
   
   console.log(`🔧 更新设备属性 ${prop}:`, value);
+    return;
+  }
+  
+  // 如果没有选中对象，更新模板
+  if (prop === 'installModel') {
+    deviceTemplate.value.installModel = value as 'ceiling' | 'wall' | 'corn';
+    // 同时更新height和rotation为对应模式的默认值
+    const defaultConfig = RADAR_DEFAULT_CONFIG[value as 'ceiling' | 'wall' | 'corn'];
+    if (defaultConfig) {
+      deviceTemplate.value.height = defaultConfig.height;
+      deviceTemplate.value.rotation = defaultConfig.Rotation;
+    }
+    console.log(`🔧 模板：切换安装模式为 ${value}`);
+  }
 };
 
 // 格式化坐标，固定宽度显示

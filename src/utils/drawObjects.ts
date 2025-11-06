@@ -210,8 +210,7 @@ function drawDeviceObject(obj: BaseObject, context: DrawContext): void {
       if (obj.angle && obj.angle !== 0) {
         ctx.save();
         ctx.translate(canvasPosition.x, canvasPosition.y);
-        // Canvas的rotate是顺时针，所以需要取负值来转换为逆时针
-        // 用户要求角度是逆时针360度值，所以直接使用负值
+        // 雷达图标需要与boundary保持一致（boundary因坐标映射使用-angle）
         ctx.rotate(-(obj.angle * Math.PI) / 180);
         ctx.translate(-canvasPosition.x, -canvasPosition.y);
         drawRadarDevice(ctx, canvasPosition, visual, installModel);
@@ -276,9 +275,8 @@ function drawShapeObject(obj: BaseObject, context: DrawContext): void {
     if (centerX !== 0 || centerY !== 0) {
       ctx.save();
       ctx.translate(centerX, centerY);
-      // Canvas的rotate是顺时针，所以需要取负值来转换为逆时针
-      // 但用户要求角度是逆时针360度值，所以直接使用负值
-      ctx.rotate(-(rotationAngle * Math.PI) / 180); // 负号表示逆时针为正
+      // 所有对象统一使用-angle（实际是逆时针）
+      ctx.rotate(-(rotationAngle * Math.PI) / 180);
       ctx.translate(-centerX, -centerY);
     }
   }
@@ -422,7 +420,8 @@ function drawSelectionBorder(obj: BaseObject, context: DrawContext): void {
     if (rotationCenterX !== 0 || rotationCenterY !== 0) {
       ctx.save();
       ctx.translate(rotationCenterX, rotationCenterY);
-      ctx.rotate(-(rotationAngle * Math.PI) / 180); // 负号表示逆时针为正
+      // 所有对象统一使用-angle（实际是逆时针）
+      ctx.rotate(-(rotationAngle * Math.PI) / 180);
       ctx.translate(-rotationCenterX, -rotationCenterY);
     }
   }

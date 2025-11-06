@@ -348,7 +348,6 @@ export interface RadarSpecificProperties {
   
   // 信号区域配置
   signalRadius?: number;  // 信号可探测距离 (cm)
-  signalAngle?: number;   // 信号区域扇形角度 (度)
   
   // 显示控制
   showBoundary?: boolean;  // 是否显示边界，默认显示
@@ -375,15 +374,14 @@ export interface RadarSpecificProperties {
 
 // ================ 雷达默认配置 ================
 // 整合了默认高度、边界、视场角等所有配置
-// Rotation: 平面旋转角度（从Canvas的angle属性获取，逆时针为正）
+// Rotation: 平面旋转角度初始值（逆时针为正），corn的初始值是45度
 export const RADAR_DEFAULT_CONFIG = {
   // wall模式默认  +H=-X, +V=+Z
   wall: {
     height: 170,    // 默认高度 170cm
-    Rotation: 0,    // 平面旋转角度（从Canvas的angle属性获取）
+    Rotation: 0,    // 平面旋转角度初始值（逆时针为正）
     hfov: 140,      // 水平视场角140度
     vfov: 120,      // 垂直视场角120度
-    signalAngle: 180, // 即雷达相当于只向前照180度，默认边界是矩形，雷达在矩形的中心
     signalRadius: 500,     // 信号可探测距离500cm
     showBoundary: true,    // 默认显示边界
     showSignal: false,     // 默认不显示信号
@@ -397,11 +395,10 @@ export const RADAR_DEFAULT_CONFIG = {
   // ceiling模式默认 +H=-X, +V=+Y
   ceiling: {
     height: 300,    // 默认高度 300cm
-    Rotation: 0,    // 平面旋转角度（从Canvas的angle属性获取）
+    Rotation: 0,    // 平面旋转角度初始值（逆时针为正）
     hfov: 140,      // 水平视场角140度
     vfov: 120,      // 垂直视场角120度
-    signalAngle: 360, // 即雷达向下360度，默认边界是矩形，雷达在矩形的中心
-    signalRadius: 400,     // 信号可探测距离500cm
+    signalRadius: 400,     // 信号可探测距离400cm
     showBoundary: true,    // 默认显示边界
     showSignal: false,     // 默认不显示信号
     boundary: {
@@ -411,21 +408,20 @@ export const RADAR_DEFAULT_CONFIG = {
       rearV: 200     // 2米
     }
   },
-  // corn模式默认（雷达在矩形左上角，leftH/rightH为矩形的长/宽）
+  // corn模式默认（雷达在顶点，矩形由leftH和rightH确定）
   corn: {
-    height: 300,    // 默认高度 300cm
-    Rotation: 0,    // 平面旋转角度（从Canvas的angle属性获取）
+    height: 200,    // 默认高度 200cm
+    Rotation: 45,    // 平面旋转角度初始值（逆时针为正）
     hfov: 90,       // 水平视场角90度
     vfov: 120,      // 垂直视场角120度
-    signalAngle: 90, // 即雷达的1/4圆周，90度，因为一侧有遮挡，所以信号区域为1/4圆周
     signalRadius: 800,     // 信号可探测距离800cm
     showBoundary: true,    // 默认显示边界
     showSignal: false,     // 默认不显示信号
     boundary: {
-      leftH: 600,    // 6米  左边沿安装的墙面，左边6米
-      rightH: 0,   // 右边是与左边沿安装的墙面垂直的墙面，信号被遮挡，所以rightH为0
-      frontV: 600,     // 相当于雷达的前方，6米（Corn模式：雷达在左上角，向下为前方）
-      rearV: 0       // 
+      leftH: 600,    // 矩形宽度（H方向，6米）
+      rightH: 600,   // 矩形高度（V方向，6米）
+      frontV: 0,     // 不使用
+      rearV: 0       // 不使用
     }
   }
 } as const;
