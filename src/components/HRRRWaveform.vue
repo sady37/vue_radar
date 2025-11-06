@@ -27,6 +27,7 @@
       <div>{{ hoverInfo.time }}</div>
       <div>HR: {{ hoverInfo.hr }} bpm</div>
       <div>RR: {{ hoverInfo.rr }} /min</div>
+      <div v-if="hoverInfo.sleepState">Sleep: {{ hoverInfo.sleepState }}</div>
     </div>
     
     <!-- 历史模式：时间滑轨 -->
@@ -53,7 +54,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 // Props
 const props = withDefaults(defineProps<{
   mode: 'realtime' | 'history';  // 显示模式
-  data: any[];                   // 波形数据 [{ timestamp, hr, rr }]
+  data: any[];                   // 波形数据 [{ timestamp, hr, rr, sleepStage? }]
   width?: number;                // Canvas宽度
   height?: number;               // Canvas高度
   darkBackground?: boolean;      // 背景色控制
@@ -70,7 +71,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const canvasWidth = computed(() => props.width || 800);
 const canvasHeight = computed(() => props.height || 300);
 const currentTime = ref(0);
-const hoverInfo = ref<{ x: number; y: number; time: string; hr: number; rr: number } | null>(null);
+const hoverInfo = ref<{ x: number; y: number; time: string; hr: number; rr: number; sleepState?: string } | null>(null);
 
 // 当前值（实时模式）
 const currentValues = computed(() => {
@@ -96,6 +97,38 @@ const totalDuration = computed(() => {
 
 // 起始epoch（用于template访问）
 const startEpoch = computed(() => props.startEpoch || 0);
+
+// 睡眠状态颜色映射
+const SLEEP_STATE_COLORS: Record<string, string> = {
+  'Awake': '#FFE7BA',           // 浅橙/米色
+  'Light sleep': '#BAE7FF',     // 浅蓝色
+  'Deep sleep': '#D3ADF7',      // 浅紫色
+  'Not in Bed': '#F5F5F5',      // 浅灰/米白色
+  'Not monitoring': '#BFBFBF'   // 中灰色
+};
+
+// 从sleep_stage bit字段解析睡眠状态
+const parseSleepState = (sleepStage: number | undefined): string => {
+  if (sleepStage === undefined || sleepStage === null) {
+    return 'Not monitoring';
+  }
+  
+  // 提取bit 7-6（睡眠状态）
+  const sleepBits = (sleepStage >> 6) & 0b11;
+  
+  switch (sleepBits) {
+    case 0b00:  // 00: 未定义
+      return 'Not monitoring';
+    case 0b01:  // 01: 浅睡
+      return 'Light sleep';
+    case 0b10:  // 10: 深睡
+      return 'Deep sleep';
+    case 0b11:  // 11: 清醒
+      return 'Awake';
+    default:
+      return 'Not monitoring';
+  }
+};
 
 // HR报警阈值
 const HR_THRESHOLDS = {
@@ -164,12 +197,12 @@ const drawWaveform = () => {
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value);
   
   // 计算边距
-  const padding = { left: 50, right: 30, top: 20, bottom: 40 };
+  const padding = { left: 50, right: 30, top: 20, bottom: 60 };  // bottom增加到60为睡眠状态留空间
   const chartWidth = canvasWidth.value - padding.left - padding.right;
   const chartHeight = canvasHeight.value - padding.top - padding.bottom;
   
-  // Y轴范围：0-150
-  const yMin = 0;
+  // Y轴范围：-2到150（-2到0用于睡眠状态）
+  const yMin = -2;
   const yMax = 150;
   
   // 辅助函数：值到Y坐标
@@ -224,8 +257,8 @@ const drawWaveform = () => {
   ctx.lineTo(padding.left, canvasHeight.value - padding.bottom);
   ctx.stroke();
   
-  // Y轴刻度和标签
-  const yTicks = [0, 10, 23, 45, 55, 95, 115, 150];
+  // Y轴刻度和标签（包含睡眠状态区域）
+  const yTicks = [150, 125, 100, 75, 50, 25, 0];
   yTicks.forEach(tick => {
     const y = valueToY(tick);
     // 刻度线
@@ -236,6 +269,19 @@ const drawWaveform = () => {
     // 标签
     ctx.fillText(String(tick), padding.left - 10, y);
   });
+  
+  // 睡眠状态区域标签（Y=-2位置）
+  const ySleep = valueToY(-1);  // 在-2和0中间位置
+  ctx.fillText('Sleep', padding.left - 10, ySleep);
+  
+  // 在Y=0位置画一条分隔线
+  const y0Line = valueToY(0);
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, y0Line);
+  ctx.lineTo(canvasWidth.value - padding.right, y0Line);
+  ctx.stroke();
   
   // 绘制报警线（横虚线）
   const drawAlarmLine = (value: number, color: string, label: string) => {
@@ -333,6 +379,32 @@ const drawWaveform = () => {
         }
       }
     }
+  }
+  
+  // 绘制睡眠状态色块区域（Y轴0到-2）
+  if (props.data.length > 0) {
+    const sleepY0 = valueToY(0);    // Y=0的坐标
+    const sleepYNeg2 = valueToY(-2); // Y=-2的坐标
+    const sleepHeight = sleepYNeg2 - sleepY0;  // 色块高度
+    
+    // 按数据点绘制睡眠状态色块
+    let displayData = props.data;
+    if (props.mode === 'realtime') {
+      displayData = props.data.slice(-300);
+    }
+    
+    displayData.forEach((point, index) => {
+      const sleepState = parseSleepState(point.sleepStage);
+      const color = SLEEP_STATE_COLORS[sleepState];
+      
+      // 计算色块宽度（当前点到下一个点的距离）
+      const x1 = indexToX(index);
+      const x2 = index < displayData.length - 1 ? indexToX(index + 1) : canvasWidth.value - padding.right;
+      const blockWidth = x2 - x1;
+      
+      ctx.fillStyle = color;
+      ctx.fillRect(x1, sleepY0, blockWidth, sleepHeight);
+    });
   }
   
   // 绘制数据
@@ -434,17 +506,15 @@ const handleMouseMove = (e: MouseEvent) => {
     // 计算绝对时间
     const absoluteEpoch = (props.startEpoch || 0) + point.timestamp;
     const absoluteTime = formatAbsoluteTime(absoluteEpoch);
-    
-    // 调试悬停信息
-    console.log(`🖱️ Hover: time=${absoluteTime}, hr=${point.hr}, rr=${point.rr}, ` +
-                `hrColor=${getHRColor(point.hr || 0)}, rrColor=${getRRColor(point.rr || 0)}`);
+    const sleepState = parseSleepState(point.sleepStage);
     
     hoverInfo.value = {
       x: x + 10,
-      y: y - 60,
+      y: y - 80,  // 增加高度以容纳睡眠状态
       time: absoluteTime,  // 使用绝对时间 HH:MM:SS
       hr: point.hr || 0,
-      rr: point.rr || 0
+      rr: point.rr || 0,
+      sleepState: sleepState
     };
   }
 };

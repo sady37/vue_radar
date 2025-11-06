@@ -246,7 +246,7 @@
       :mode="vitalMode"
       :data="vitalWaveformData"
       :width="800"
-      :height="400"
+      :height="440"
       :dark-background="darkBackground"
       :start-epoch="vitalStartEpoch"
       :end-epoch="vitalEndEpoch"
@@ -318,8 +318,8 @@ const darkBackground = ref(true);     // 背景色（默认黑色）
 
 // HR/RR波形数据
 const vitalMode = ref<'realtime' | 'history'>('history');  // 波形模式
-const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 波形数据
-const vitalParsedData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 解析后的临时数据
+const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }>>([]);  // 波形数据
+const vitalParsedData = ref<Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }>>([]);  // 解析后的临时数据
 const vitalStartEpoch = ref<number>(0);  // 历史数据的起始时间（秒，epoch）
 const vitalEndEpoch = ref<number>(0);    // 历史数据的结束时间（秒，epoch）
 
@@ -503,9 +503,9 @@ const handleVitalFromFile = () => {
 };
 
 // 解析Vital CSV数据
-const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; hr: number; rr: number }>, startEpoch: number, endEpoch: number } => {
+const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }>, startEpoch: number, endEpoch: number } => {
   const lines = content.trim().split('\n');
-  const data: Array<{ timestamp: number; hr: number; rr: number }> = [];
+  const data: Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }> = [];
   
   if (lines.length < 2) return { records: [], startEpoch: 0, endEpoch: 0 };
   
@@ -521,7 +521,8 @@ const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; h
       const record = {
         timestamp: parseInt(values[5] || '0', 10),
         hr: parseInt(values[3] || '0', 10),  // heart_rate
-        rr: parseInt(values[2] || '0', 10)   // breath_rate
+        rr: parseInt(values[2] || '0', 10),  // breath_rate
+        sleepStage: parseInt(values[6] || '0', 10)  // sleep_stage
       };
       
       data.push(record);
