@@ -317,6 +317,7 @@ const darkBackground = ref(true);     // 背景色（默认黑色）
 // HR/RR波形数据
 const vitalMode = ref<'realtime' | 'history'>('history');  // 波形模式
 const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 波形数据
+const vitalParsedData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 解析后的临时数据
 
 // 播放控制
 let playbackIntervalId: number | null = null;
@@ -473,11 +474,10 @@ const handleVitalFromFile = () => {
       vitalFileName.value = file.name;
       vitalFileContent.value = text;
       
-      // 解析CSV数据
+      // 解析CSV数据到临时变量（不立即显示）
       if (file.name.endsWith('.csv')) {
         const parsedData = parseVitalCSV(text);
-        vitalWaveformData.value = parsedData;
-        vitalMode.value = 'history';  // CSV文件默认为历史模式
+        vitalParsedData.value = parsedData;
         console.log(`✅ 解析Vital CSV: ${parsedData.length} 条记录`);
       }
       
@@ -486,6 +486,7 @@ const handleVitalFromFile = () => {
       console.error('❌ Vital file load failed:', error);
       vitalFileName.value = '';
       vitalFileContent.value = '';
+      vitalParsedData.value = [];
       alert('File load failed');
     }
   };
@@ -521,13 +522,31 @@ const parseVitalCSV = (content: string): Array<{ timestamp: number; hr: number; 
     }
   }
   
-  console.log(`✅ Vital CSV解析完成: ${data.length} 条记录`);
+  // 按时间戳排序（从旧到新）
+  data.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // 转换为相对时间（秒），第一条记录为0秒
+  if (data.length > 0) {
+    const startTime = data[0].timestamp;
+    data.forEach(record => {
+      record.timestamp = record.timestamp - startTime;
+    });
+  }
+  
+  console.log(`✅ Vital CSV解析完成: ${data.length} 条记录, 时长: ${data.length > 0 ? data[data.length - 1].timestamp : 0}秒`);
   return data;
 };
 
 const handleLoadVitalFile = () => {
   console.log('📂 Load HR/RR from File:', vitalFileName.value);
-  alert('File Load mode: Not implemented yet');
+  // 将解析的临时数据加载到波形显示
+  if (vitalParsedData.value.length > 0) {
+    vitalWaveformData.value = [...vitalParsedData.value];  // 复制数据
+    vitalMode.value = 'history';
+    console.log(`✅ 加载Vital历史数据: ${vitalWaveformData.value.length} 条记录`);
+  } else {
+    alert('No data to load. Please select a file first.');
+  }
 };
 
 const handleRealTimeVital = () => {

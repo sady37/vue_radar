@@ -222,46 +222,68 @@ const drawWaveform = () => {
   ctx.lineTo(canvasWidth.value - padding.right, canvasHeight.value - padding.bottom);
   ctx.stroke();
   
-  // X轴刻度和标签
-  ctx.strokeStyle = gridColor;
-  ctx.fillStyle = textColor;
-  ctx.font = '12px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  
-  if (props.mode === 'realtime') {
-    // 实时模式：-300s to 0s (now)
-    const ticks = [-300, -240, -180, -120, -60, 0];
-    ticks.forEach((tick, index) => {
-      const x = padding.left + (chartWidth * (index / (ticks.length - 1)));
-      const y = canvasHeight.value - padding.bottom;
-      // 刻度线
-      ctx.strokeStyle = gridColor;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x, y + 5);
-      ctx.stroke();
-      // 标签
-      ctx.fillStyle = textColor;
-      ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
-    });
-  } else {
-    // 历史模式：0-30分钟（即使无数据也显示默认刻度）
-    const durationMinutes = props.data.length > 0 ? Math.ceil(totalDuration.value / 60) : 30;
-    const tickCount = 6;  // 固定6个刻度
-    for (let i = 0; i <= tickCount; i++) {
-      const x = padding.left + (chartWidth * (i / tickCount));
-      const y = canvasHeight.value - padding.bottom;
-      // 刻度线
-      ctx.strokeStyle = gridColor;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x, y + 5);
-      ctx.stroke();
-      // 标签
-      ctx.fillStyle = textColor;
-      const minutes = Math.round((durationMinutes * i) / tickCount);
-      ctx.fillText(`${minutes}min`, x, y + 8);
+  // X轴刻度和标签（仅在有数据时绘制）
+  if (props.data.length > 0) {
+    ctx.strokeStyle = gridColor;
+    ctx.fillStyle = textColor;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    if (props.mode === 'realtime') {
+      // 实时模式：-300s to 0s (now)
+      const ticks = [-300, -240, -180, -120, -60, 0];
+      ticks.forEach((tick, index) => {
+        const x = padding.left + (chartWidth * (index / (ticks.length - 1)));
+        const y = canvasHeight.value - padding.bottom;
+        // 刻度线
+        ctx.strokeStyle = gridColor;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + 5);
+        ctx.stroke();
+        // 标签
+        ctx.fillStyle = textColor;
+        ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
+      });
+    } else {
+      // 历史模式：根据实际数据时长均匀分布
+      const durationSeconds = totalDuration.value;  // 实际时长（秒）
+      const durationMinutes = durationSeconds / 60;  // 转换为分钟
+      
+      // 根据时长决定刻度数量
+      const tickCount = 6;  // 固定6个间隔 = 7个刻度点
+      
+      for (let i = 0; i <= tickCount; i++) {
+        const x = padding.left + (chartWidth * (i / tickCount));
+        const y = canvasHeight.value - padding.bottom;
+        
+        // 刻度线
+        ctx.strokeStyle = gridColor;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + 5);
+        ctx.stroke();
+        
+        // 标签 - 显示分钟数
+        ctx.fillStyle = textColor;
+        const minutes = (durationMinutes * i) / tickCount;
+        
+        // 如果时长小于1分钟，显示秒数；否则显示分钟数
+        let label = '';
+        if (durationSeconds < 60) {
+          const seconds = Math.round((durationSeconds * i) / tickCount);
+          label = `${seconds}s`;
+        } else if (durationMinutes < 10) {
+          // 小于10分钟，显示1位小数
+          label = `${minutes.toFixed(1)}min`;
+        } else {
+          // 10分钟以上，显示整数
+          label = `${Math.round(minutes)}min`;
+        }
+        
+        ctx.fillText(label, x, y + 8);
+      }
     }
   }
   
