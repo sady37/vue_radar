@@ -197,7 +197,7 @@ const drawWaveform = () => {
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value);
   
   // 计算边距
-  const padding = { left: 35, right: 10, top: 10, bottom: 60 };  // left=35, right=10
+  const padding = { left: 35, right: 30, top: 10, bottom: 60 };  // left=35, right=30增加右边距
   const chartWidth = canvasWidth.value - padding.left - padding.right;
   const chartHeight = canvasHeight.value - padding.top - padding.bottom;
   
@@ -483,7 +483,7 @@ const handleMouseMove = (e: MouseEvent) => {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   
-  const padding = { left: 35, right: 10, top: 10, bottom: 60 };  // 与绘制函数保持一致
+  const padding = { left: 35, right: 30, top: 10, bottom: 60 };  // 与绘制函数保持一致
   const chartWidth = canvasWidth.value - padding.left - padding.right;
   
   // 检查是否在图表区域内
