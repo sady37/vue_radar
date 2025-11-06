@@ -36,7 +36,7 @@
       <div v-if="mode === 'manual'" class="manual-mode">
         <div class="file-upload">
           <label>Data File:</label>
-          <input type="file" @change="loadDataFile" accept=".json" />
+          <input type="file" @change="loadDataFile" accept=".csv,.json" />
           <span v-if="dataFile" class="file-name">✓ {{ dataFile.name }}</span>
         </div>
         
@@ -92,6 +92,7 @@
 import { ref } from 'vue';
 import { useCanvasStore } from '@/stores/canvas';
 import { useRadarDataStore } from '@/stores/radarData';
+import { useObjectsStore } from '@/stores/objects';
 
 const props = defineProps<{
   visible: boolean;
@@ -104,6 +105,7 @@ const emit = defineEmits<{
 
 const canvasStore = useCanvasStore();
 const radarDataStore = useRadarDataStore();
+const objectsStore = useObjectsStore();
 
 const mode = ref<'manual' | 'auto'>('auto');  // 默认自动模式
 const dataType = ref<'track' | 'vital'>('track');  // 数据类型：Track/Vital
@@ -129,14 +131,101 @@ const loadDataFile = (e: Event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        manualData.value = JSON.parse(e.target?.result as string);
-        console.log('✓ Data file loaded successfully');
+        const content = e.target?.result as string;
+        
+        // 检测格式：CSV或JSON
+        if (file.name.endsWith('.csv')) {
+          // CSV格式：解析为数组
+          manualData.value = parseCSVData(content, dataType.value);
+          console.log('✓ CSV数据文件加载成功:', manualData.value.length, '条记录');
+        } else {
+          // JSON格式
+          manualData.value = JSON.parse(content);
+          console.log('✓ JSON数据文件加载成功');
+        }
       } catch (err) {
+        console.error('文件解析错误:', err);
         error.value = 'Invalid data file format';
       }
     };
     reader.readAsText(file);
   }
+};
+
+// 解析CSV数据
+const parseCSVData = (content: string, type: 'track' | 'vital'): any[] => {
+  const lines = content.trim().split('\n');
+  const data: any[] = [];
+  
+  if (lines.length < 2) return data;
+  
+  // 第一行是表头
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  
+  // 按timestamp分组（track数据需要）
+  const groupedByTimestamp: Map<number, any[]> = new Map();
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    try {
+      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      
+      // 构建对象
+      const row: any = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx];
+      });
+      
+      if (type === 'track') {
+        // Track数据：按timestamp分组
+        const timestamp = parseInt(row.timestamp || '0', 10);
+        
+        if (!groupedByTimestamp.has(timestamp)) {
+          groupedByTimestamp.set(timestamp, []);
+        }
+        
+        groupedByTimestamp.get(timestamp)!.push({
+          id: parseInt(row.id || '0', 10),
+          deviceCode: row.device_code || 'UNKNOWN',
+          personIndex: parseInt(row.person_index || '0', 10),
+          posture: parseInt(row.posture || '0', 10),
+          position: {
+            x: parseInt(row.coordinate_x || '0', 10) * 10,  // dm → cm
+            y: parseInt(row.coordinate_y || '0', 10) * 10,  // dm → cm
+            z: parseInt(row.coordinate_z || '0', 10)
+          },
+          remainTime: parseInt(row.remaining_time || '0', 10),
+          event: parseInt(row.event || '0', 10),
+          areaId: parseInt(row.area_id || '0', 10)
+        });
+      } else {
+        // Vital数据
+        data.push({
+          id: parseInt(row.id || '0', 10),
+          deviceCode: row.device_code || 'UNKNOWN',
+          heartRate: parseInt(row.heart_rate || '0', 10),
+          breathing: parseInt(row.breath_rate || '0', 10),
+          sleepStage: parseInt(row.sleep_stage || '0', 10),
+          timestamp: parseInt(row.timestamp || '0', 10)
+        });
+      }
+    } catch (err) {
+      console.warn('CSV行解析失败:', line, err);
+    }
+  }
+  
+  // Track数据：转换为timeline格式
+  if (type === 'track') {
+    const timestamps = Array.from(groupedByTimestamp.keys()).sort((a, b) => a - b);
+    return timestamps.map(ts => ({
+      timestamp: ts,
+      persons: groupedByTimestamp.get(ts) || []
+    }));
+  }
+  
+  return data;
 };
 
 // 加载布局文件
@@ -233,15 +322,50 @@ const playAuto = async () => {
 
 // 应用配置并播放
 const applyConfigAndPlay = (layout: any, data: any) => {
-  // 应用布局
-  canvasStore.setLayout(layout);
+  // 应用布局（直接设置objects）
+  if (layout && layout.objects) {
+    objectsStore.objects = layout.objects;
+    objectsStore.selectedId = null;
+    objectsStore.updateAllRadarAreas();
+    console.log('📥 布局已应用:', layout.objects.length, '个对象');
+  }
   
-  // 加载历史数据
-  radarDataStore.setMode('fromserver');
-  radarDataStore.loadHistoricalData(data);
+  // 加载历史数据并开始播放
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('No data to play');
+  }
+  
+  radarDataStore.setPlaybackMode(true);
+  
+  // Track数据格式：[{ timestamp, persons: [...] }]
+  if (data[0].persons) {
+    console.log('✅ Track数据已加载，开始播放', data.length, '帧');
+    
+    // 播放track数据
+    let currentIndex = 0;
+    const playNextFrame = () => {
+      if (currentIndex >= data.length) {
+        console.log('✅ 播放完成');
+        radarDataStore.setPlaybackMode(false);
+        return;
+      }
+      
+      const frameData = data[currentIndex];
+      radarDataStore.updatePersons(frameData.persons);
+      
+      currentIndex++;
+      setTimeout(playNextFrame, 1000); // 1秒一帧
+    };
+    
+    playNextFrame();
+  } else {
+    // Vital数据
+    console.log('✅ Vital数据已加载', data.length, '条记录');
+    // TODO: 实现vital数据播放
+  }
   
   console.log('✅ 配置已应用，开始播放', {
-    layout,
+    layout: layout?.objects?.length || 0,
     dataLength: data.length
   });
 };

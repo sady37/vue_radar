@@ -470,10 +470,168 @@ export interface PersonData {
 
 export interface VitalSignData {
   type: number;
-  heartRate: number;
-  breathing: number;
-  sleepState: number;
+  heartRate: number;        // 心率值（bpm）
+  breathing: number;        // 呼吸率（次/分）
+  sleepState: number;       // 睡眠状态（0-3，见SleepState枚举）
   timestamp?: number;
+  
+  // 可选：已解析的状态字段（如果后端提供）
+  breathStatus?: number;      // 呼吸状态（0-3，见BreathStatus枚举）
+  heartRateStatus?: number;   // 心率状态（0-3，见HeartRateStatus枚举）
+  vitalSignStatus?: number;   // 生命体征状态（0-3，见VitalSignStatus枚举）
+}
+
+// ================ CSV数据格式（数据库/文件导入） ================
+// 生命体征CSV格式
+export interface VitalSignCSVData {
+  id: number;
+  device_code: string;      // 设备编码
+  breath_rate: number;      // 呼吸率（次/分）
+  heart_rate: number;       // 心率（bpm）
+  event: string | null;     // 事件
+  timestamp: number;        // Unix时间戳（秒）
+  sleep_stage: number;      // 8位位字段（包含呼吸/心率/体征/睡眠状态）
+}
+
+// 人员轨迹CSV格式
+export interface PersonTrackCSVData {
+  id: number;
+  device_code: string;      // 设备编码
+  person_index: number;     // 人员索引（0开始）
+  coordinate_x: number;     // X坐标（cm）
+  coordinate_y: number;     // Y坐标（cm）
+  coordinate_z: number;     // Z坐标/高度（cm）
+  remaining_time: number;   // 停留时间（秒）
+  posture: number;          // 姿态（0-11，见PersonPosture枚举）
+  event: number;            // 事件标识
+  area_id: number;          // 区域ID（0-15）
+  timestamp: number;        // Unix时间戳（秒）
+}
+
+// ================ 生命体征状态编码 ================
+// 说明：这些状态可能来自：
+// 1. 后端已解析的独立字段（推荐）
+// 2. 或从sleep_stage位字段解析（使用parseVitalStatusBits函数）
+
+// bit 1-0: 呼吸状态
+export enum BreathStatus {
+  Normal = 0,      // 00: 呼吸正常
+  TooLow = 1,      // 01: 呼吸过低
+  TooHigh = 2,     // 10: 呼吸过高
+  Pause = 3        // 11: 呼吸暂停
+}
+
+export const BREATH_STATUS_LABELS: Record<number, string> = {
+  0: 'Normal',
+  1: 'TooLow',
+  2: 'TooHigh',
+  3: 'Pause'
+};
+
+// bit 3-2: 心率状态
+export enum HeartRateStatus {
+  Normal = 0,      // 00: 心率正常
+  TooLow = 1,      // 01: 心率过低
+  TooHigh = 2,     // 10: 心率过高
+  Undefined = 3    // 11: 未定义
+}
+
+export const HEART_RATE_STATUS_LABELS: Record<number, string> = {
+  0: 'Normal',
+  1: 'TooLow',
+  2: 'TooHigh',
+  3: 'Undefined'
+};
+
+// bit 5-4: 生命体征情况
+export enum VitalSignStatus {
+  Normal = 0,      // 00: 状态正常
+  Undefined1 = 1,  // 01: 未定义
+  Undefined2 = 2,  // 10: 未定义
+  Weak = 3         // 11: 生命体征弱
+}
+
+export const VITAL_SIGN_STATUS_LABELS: Record<number, string> = {
+  0: 'Normal',
+  1: 'Undefined',
+  2: 'Undefined',
+  3: 'Weak'
+};
+
+// bit 7-6: 睡眠状态
+export enum SleepState {
+  Undefined = 0,   // 00: 未定义
+  LightSleep = 1,  // 01: 浅睡
+  DeepSleep = 2,   // 10: 深睡
+  Awake = 3        // 11: 清醒
+}
+
+export const SLEEP_STATE_LABELS: Record<number, string> = {
+  0: 'Undefined',
+  1: 'LightSleep',
+  2: 'DeepSleep',
+  3: 'Awake'
+};
+
+// ================ 位字段解析函数 ================
+// 从sleep_stage位字段提取各种状态
+export function parseVitalStatusBits(sleepStageValue: number) {
+  return {
+    breathStatus: (sleepStageValue & 0b11) as BreathStatus,           // bit 1-0
+    heartRateStatus: ((sleepStageValue >> 2) & 0b11) as HeartRateStatus, // bit 3-2
+    vitalSignStatus: ((sleepStageValue >> 4) & 0b11) as VitalSignStatus, // bit 5-4
+    sleepState: ((sleepStageValue >> 6) & 0b11) as SleepState           // bit 7-6
+  };
+}
+
+// 从各状态构建sleep_stage位字段
+export function buildVitalStatusBits(
+  breathStatus: BreathStatus,
+  heartRateStatus: HeartRateStatus,
+  vitalSignStatus: VitalSignStatus,
+  sleepState: SleepState
+): number {
+  return (
+    (breathStatus & 0b11) |
+    ((heartRateStatus & 0b11) << 2) |
+    ((vitalSignStatus & 0b11) << 4) |
+    ((sleepState & 0b11) << 6)
+  );
+}
+
+// ================ CSV数据转换函数 ================
+// 将PersonTrackCSVData转换为PersonData
+export function convertPersonTrackCSV(csvData: PersonTrackCSVData): PersonData {
+  return {
+    id: csvData.id,
+    deviceCode: csvData.device_code,
+    personIndex: csvData.person_index,
+    position: {
+      x: csvData.coordinate_x,
+      y: csvData.coordinate_y,
+      z: csvData.coordinate_z
+    },
+    posture: csvData.posture,
+    remainTime: csvData.remaining_time,
+    event: csvData.event,
+    areaId: csvData.area_id,
+    timestamp: csvData.timestamp
+  };
+}
+
+// 将VitalSignCSVData转换为VitalSignData
+export function convertVitalSignCSV(csvData: VitalSignCSVData): VitalSignData {
+  const parsed = parseVitalStatusBits(csvData.sleep_stage);
+  return {
+    type: 0,  // 默认类型
+    heartRate: csvData.heart_rate,
+    breathing: csvData.breath_rate,
+    sleepState: parsed.sleepState,
+    timestamp: csvData.timestamp,
+    breathStatus: parsed.breathStatus,
+    heartRateStatus: parsed.heartRateStatus,
+    vitalSignStatus: parsed.vitalSignStatus
+  };
 }
 
 // ================ 姿态枚举 ================

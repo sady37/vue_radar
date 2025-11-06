@@ -152,6 +152,14 @@
       </div>
     </div>
     
+    <!-- HR/RR Waveform Display -->
+    <HRRRWaveform 
+      :mode="vitalMode"
+      :data="vitalWaveformData"
+      :width="800"
+      :height="400"
+    />
+    
     <!-- HR/RR Controls -->
     <div class="vital-toolbar">
       <!-- Row 1: fromServer for HR/RR -->
@@ -270,6 +278,7 @@ import { useObjectsStore } from '@/stores/objects';
 import { useRadarDataStore } from '@/stores/radarData';
 import { MockRadarService } from '@/utils/mockRadarData';
 import QueryPanel from './QueryPanel.vue';
+import HRRRWaveform from './HRRRWaveform.vue';
 
 const objectsStore = useObjectsStore();
 const radarDataStore = useRadarDataStore();
@@ -310,6 +319,10 @@ const vitalFileName = ref('');        // fromFile: 文件名
 const vitalFileContent = ref('');     // fromFile: 文件内容
 const vitalSelectDevice = ref('');    // fromFile: Select设备
 const darkBackground = ref(true);     // 背景色（默认黑色）
+
+// HR/RR波形数据
+const vitalMode = ref<'realtime' | 'history'>('history');  // 波形模式
+const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number }>>([]);  // 波形数据
 
 // 播放控制
 let playbackIntervalId: number | null = null;
@@ -383,7 +396,7 @@ watch(useEventTime, (isEvent) => {
 const handleFromFile = () => {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.txt,.csv,.json';
+  input.accept = '.csv,.json';
   
   input.onchange = async (e: Event) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -455,7 +468,7 @@ const handleLoadVitalServer = () => {
 const handleVitalFromFile = () => {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json';
+  input.accept = '.csv,.json';
   
   input.onchange = async (e: Event) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -465,6 +478,15 @@ const handleVitalFromFile = () => {
       const text = await file.text();
       vitalFileName.value = file.name;
       vitalFileContent.value = text;
+      
+      // 解析CSV数据
+      if (file.name.endsWith('.csv')) {
+        const parsedData = parseVitalCSV(text);
+        vitalWaveformData.value = parsedData;
+        vitalMode.value = 'history';  // CSV文件默认为历史模式
+        console.log(`✅ 解析Vital CSV: ${parsedData.length} 条记录`);
+      }
+      
       console.log(`✅ Vital file selected: ${file.name}`);
     } catch (error) {
       console.error('❌ Vital file load failed:', error);
@@ -477,6 +499,38 @@ const handleVitalFromFile = () => {
   input.click();
 };
 
+// 解析Vital CSV数据
+const parseVitalCSV = (content: string): Array<{ timestamp: number; hr: number; rr: number }> => {
+  const lines = content.trim().split('\n');
+  const data: Array<{ timestamp: number; hr: number; rr: number }> = [];
+  
+  if (lines.length < 2) return data;
+  
+  // 跳过表头
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    try {
+      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      
+      // CSV格式: id,device_code,breath_rate,heart_rate,event,timestamp,sleep_stage
+      const record = {
+        timestamp: parseInt(values[5] || '0', 10),
+        hr: parseInt(values[3] || '0', 10),  // heart_rate
+        rr: parseInt(values[2] || '0', 10)   // breath_rate
+      };
+      
+      data.push(record);
+    } catch (err) {
+      console.warn('Vital CSV行解析失败:', line, err);
+    }
+  }
+  
+  console.log(`✅ Vital CSV解析完成: ${data.length} 条记录`);
+  return data;
+};
+
 const handleLoadVitalFile = () => {
   console.log('📂 Load HR/RR from File:', vitalFileName.value);
   alert('File Load mode: Not implemented yet');
@@ -484,7 +538,14 @@ const handleLoadVitalFile = () => {
 
 const handleRealTimeVital = () => {
   console.log('🔴 RealTime HR/RR');
-  alert('RealTime mode: Not implemented yet');
+  
+  // 切换到实时模式
+  vitalMode.value = 'realtime';
+  vitalWaveformData.value = [];  // 清空数据，准备接收实时数据
+  
+  console.log('✅ 切换到实时模式');
+  // TODO: 连接WebSocket或轮询获取实时数据
+  alert('RealTime mode: Ready (需要实现WebSocket连接)');
 };
 
 // 限制Track时长输入范围（2-30分钟）
@@ -692,62 +753,128 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
   }
 };
 
-// 解析真实数据（从文件 - 表格格式）
+// 解析真实数据（从文件 - 支持CSV和表格格式）
 const parseRealData = (content: string): any[] => {
   const lines = content.trim().split('\n');
   const data: any[] = [];
   
   console.log(`📂 解析文件，共 ${lines.length} 行`);
   
-  for (const line of lines) {
-    const trimmed = line.trim();
+  // 检测格式：CSV或表格
+  const firstDataLine = lines.find(l => l.trim() && !l.trim().startsWith('+'));
+  const isCSV = firstDataLine && !firstDataLine.includes('|');
+  
+  console.log(`📋 检测到格式: ${isCSV ? 'CSV' : '表格'}`);
+  
+  if (isCSV) {
+    // CSV格式解析
+    let headers: string[] = [];
     
-    // 跳过空行、分隔线、表头
-    if (!trimmed || 
-        trimmed.startsWith('+') || 
-        trimmed.includes('device_code') ||
-        !trimmed.startsWith('|')) {
-      continue;
-    }
-    
-    try {
-      // 解析表格行（| 分隔）
-      const cols = trimmed.split('|').map(c => c.trim()).filter(c => c);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
       
-      if (cols.length < 12) {
-        console.warn('列数不足，跳过:', trimmed);
+      // 第一行是表头
+      if (i === 0 || headers.length === 0) {
+        headers = line.split(',').map(h => h.trim().replace(/"/g, ''));
+        console.log('📋 CSV表头:', headers);
         continue;
       }
       
-      // 安全解析数字
-      const safeParse = (str: string) => {
-        if (str === 'NULL' || !str) return 0;
-        const num = parseInt(str, 10);
-        return Number.isNaN(num) ? 0 : num;
-      };
+      try {
+        // 解析CSV行
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length < headers.length) {
+          console.warn('列数不足，跳过:', line);
+          continue;
+        }
+        
+        // 构建对象
+        const row: any = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx];
+        });
+        
+        // 转换为标准格式
+        const record = {
+          timestamp: parseInt(row.timestamp || '0', 10),
+          persons: [{
+            id: parseInt(row.id || '0', 10),
+            deviceCode: row.device_code || 'UNKNOWN',
+            personIndex: parseInt(row.person_index || '0', 10),
+            posture: parseInt(row.posture || '0', 10),
+            position: {
+              x: parseInt(row.coordinate_x || '0', 10) * 10,  // dm → cm
+              y: parseInt(row.coordinate_y || '0', 10) * 10,  // dm → cm
+              z: parseInt(row.coordinate_z || '0', 10)
+            },
+            remainTime: parseInt(row.remaining_time || '0', 10),
+            event: parseInt(row.event || '0', 10),
+            areaId: parseInt(row.area_id || '0', 10),
+            heartRate: undefined,
+            breathRate: undefined,
+            sleepState: undefined
+          }]
+        };
+        
+        data.push(record);
+      } catch (e) {
+        console.warn('CSV解析失败:', line, e);
+      }
+    }
+  } else {
+    // 表格格式解析（原有逻辑）
+    for (const line of lines) {
+      const trimmed = line.trim();
       
-      // 解析为标准格式
-      const record = {
-        timestamp: safeParse(cols[10]),  // timestamp
-        persons: [{
-          id: safeParse(cols[0]),
-          deviceCode: cols[1] || 'UNKNOWN',
-          personIndex: safeParse(cols[11]),  // person_index
-          posture: safeParse(cols[7]),       // posture
-          position: {
-            x: safeParse(cols[3]) * 10,     // dm → cm (统一在入口转换)
-            y: safeParse(cols[4]) * 10,     // dm → cm
-            z: safeParse(cols[5])
-          },
-          heartRate: undefined,
-          breathRate: undefined,
-          sleepState: undefined
-        }]
-      };
+      // 跳过空行、分隔线、表头
+      if (!trimmed || 
+          trimmed.startsWith('+') || 
+          trimmed.includes('device_code') ||
+          !trimmed.startsWith('|')) {
+        continue;
+      }
       
-      data.push(record);
-    } catch (e) {
-      console.warn('解析失败:', line, e);
+      try {
+        // 解析表格行（| 分隔）
+        const cols = trimmed.split('|').map(c => c.trim()).filter(c => c);
+        
+        if (cols.length < 12) {
+          console.warn('列数不足，跳过:', trimmed);
+          continue;
+        }
+        
+        // 安全解析数字
+        const safeParse = (str: string) => {
+          if (str === 'NULL' || !str) return 0;
+          const num = parseInt(str, 10);
+          return Number.isNaN(num) ? 0 : num;
+        };
+        
+        // 解析为标准格式
+        const record = {
+          timestamp: safeParse(cols[10]),  // timestamp
+          persons: [{
+            id: safeParse(cols[0]),
+            deviceCode: cols[1] || 'UNKNOWN',
+            personIndex: safeParse(cols[11]),  // person_index
+            posture: safeParse(cols[7]),       // posture
+            position: {
+              x: safeParse(cols[3]) * 10,     // dm → cm (统一在入口转换)
+              y: safeParse(cols[4]) * 10,     // dm → cm
+              z: safeParse(cols[5])
+            },
+            heartRate: undefined,
+            breathRate: undefined,
+            sleepState: undefined
+          }]
+        };
+        
+        data.push(record);
+      } catch (e) {
+        console.warn('解析失败:', line, e);
+      }
     }
   }
   
