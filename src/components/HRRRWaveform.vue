@@ -314,8 +314,13 @@ const drawWaveform = () => {
   ctx.strokeStyle = gridColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(padding.left, canvasHeight.value - padding.bottom);
-  ctx.lineTo(canvasWidth.value - padding.right, canvasHeight.value - padding.bottom);
+  const xAxisStart = padding.left;
+  const xAxisEnd = canvasWidth.value - padding.right;
+  console.log(`📐 X轴范围: ${xAxisStart}px - ${xAxisEnd}px, 长度=${xAxisEnd - xAxisStart}px`);
+  console.log(`📐 Canvas宽度: ${canvasWidth.value}px, 实际canvas.width=${canvas.width}px`);
+  console.log(`📐 Padding: left=${padding.left}, right=${padding.right}`);
+  ctx.moveTo(xAxisStart, canvasHeight.value - padding.bottom);
+  ctx.lineTo(xAxisEnd, canvasHeight.value - padding.bottom);
   ctx.stroke();
   
   // X轴刻度和标签（仅在有数据时绘制）
@@ -359,6 +364,10 @@ const drawWaveform = () => {
           const ratio = (tickEpoch - startMinuteBoundary) / (endMinuteBoundary - startMinuteBoundary);
           const x = padding.left + (chartWidth * ratio);
           const y = canvasHeight.value - padding.bottom;
+          
+          if (i === totalMinutes) {
+            console.log(`📐 最后一个刻度[${i}]: x=${x}px, X轴终点=${canvasWidth.value - padding.right}px, 差值=${(canvasWidth.value - padding.right) - x}px`);
+          }
           
           // 刻度线
           ctx.strokeStyle = gridColor;
@@ -558,12 +567,15 @@ onMounted(() => {
   border-radius: 4px;
   padding: 8px;
   border: 1px solid #e0e0e0;
+  width: fit-content;  /* 容器适应canvas大小 */
+  max-width: 100%;     /* 不超过父容器 */
 }
 
 canvas {
   display: block;
   border-radius: 4px;
   cursor: crosshair;
+  border: 2px solid red;  /* 临时调试：显示canvas边界 */
 }
 
 .realtime-values {

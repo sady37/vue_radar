@@ -245,7 +245,7 @@
     <HRRRWaveform 
       :mode="vitalMode"
       :data="vitalWaveformData"
-      :width="800"
+      :width="600"
       :height="440"
       :dark-background="darkBackground"
       :start-epoch="vitalStartEpoch"
