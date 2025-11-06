@@ -549,12 +549,8 @@ onMounted(() => {
 .hrrr-waveform {
   position: relative;
   border-radius: 4px;
-  padding: 0 15px;  /* 恢复15px与v0.6的工具栏对齐 */
-  border: none;
-  width: 100%;
-  box-sizing: border-box;
-  display: flex;
-  justify-content: center;
+  padding: 8px;  /* 恢复83b0f27的8px */
+  border: 1px solid #e0e0e0;  /* 恢复83b0f27的边框 */
 }
 
 canvas {
