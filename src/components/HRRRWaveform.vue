@@ -51,12 +51,17 @@
 import { ref, onMounted, watch, computed } from 'vue';
 
 // Props
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   mode: 'realtime' | 'history';  // 显示模式
   data: any[];                   // 波形数据 [{ timestamp, hr, rr }]
   width?: number;                // Canvas宽度
   height?: number;               // Canvas高度
-}>();
+  darkBackground?: boolean;      // 背景色控制
+}>(), {
+  width: 800,
+  height: 400,
+  darkBackground: false  // 默认白色背景
+});
 
 // Refs
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -112,8 +117,13 @@ const drawWaveform = () => {
   // 清空画布
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
   
-  // 绘制背景
-  ctx.fillStyle = '#1a1a1a';
+  // 绘制背景（根据darkBackground属性）
+  const bgColor = props.data.length > 0 && props.darkBackground ? '#1a1a1a' : '#ffffff';
+  const fgColor = props.data.length > 0 && props.darkBackground ? '#ffffff' : '#333333';
+  const gridColor = props.data.length > 0 && props.darkBackground ? '#444' : '#e0e0e0';
+  const textColor = props.data.length > 0 && props.darkBackground ? '#999' : '#666';
+  
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value);
   
   // 计算边距
@@ -147,9 +157,9 @@ const drawWaveform = () => {
   };
   
   // 绘制Y轴和刻度
-  ctx.strokeStyle = '#444';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 1;
-  ctx.fillStyle = '#999';
+  ctx.fillStyle = textColor;
   ctx.font = '12px Arial';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -205,7 +215,7 @@ const drawWaveform = () => {
   drawAlarmLine(RR_THRESHOLDS.l2.max, '#ff4d4f', '');          // 26 红色
   
   // 绘制X轴
-  ctx.strokeStyle = '#444';
+  ctx.strokeStyle = gridColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padding.left, canvasHeight.value - padding.bottom);
@@ -213,7 +223,7 @@ const drawWaveform = () => {
   ctx.stroke();
   
   // X轴刻度
-  ctx.fillStyle = '#999';
+  ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   
@@ -252,11 +262,11 @@ const drawWaveform = () => {
   // 绘制数据
   if (props.data.length === 0) {
     // 无数据时显示提示
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = textColor;
     ctx.font = '14px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No Data', canvasWidth.value / 2, canvasHeight.value / 2);
+    ctx.fillText('No Data - Load CSV file or start RealTime', canvasWidth.value / 2, canvasHeight.value / 2);
     return;
   }
   
@@ -316,7 +326,7 @@ const drawWaveform = () => {
     const ratio = currentTime.value / totalDuration.value;
     const x = padding.left + chartWidth * ratio;
     
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = fgColor;
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
@@ -326,6 +336,11 @@ const drawWaveform = () => {
     ctx.setLineDash([]);
   }
 };
+
+// 监听背景颜色变化
+watch(() => props.darkBackground, () => {
+  drawWaveform();
+});
 
 // 鼠标移动处理（历史模式）
 const handleMouseMove = (e: MouseEvent) => {
@@ -394,9 +409,9 @@ onMounted(() => {
 <style scoped>
 .hrrr-waveform {
   position: relative;
-  background: #1a1a1a;
   border-radius: 4px;
   padding: 8px;
+  border: 1px solid #e0e0e0;
 }
 
 canvas {

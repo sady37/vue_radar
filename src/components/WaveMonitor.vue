@@ -152,14 +152,6 @@
       </div>
     </div>
     
-    <!-- HR/RR Waveform Display -->
-    <HRRRWaveform 
-      :mode="vitalMode"
-      :data="vitalWaveformData"
-      :width="800"
-      :height="400"
-    />
-    
     <!-- HR/RR Controls -->
     <div class="vital-toolbar">
       <!-- Row 1: fromServer for HR/RR -->
@@ -249,12 +241,14 @@
       </div>
     </div>
     
-    <!-- Waveform display area -->
-    <div class="waveform-content">
-      <div class="placeholder">
-        <p>Waveform display area (to be implemented)</p>
-      </div>
-    </div>
+    <!-- HR/RR Waveform Display -->
+    <HRRRWaveform 
+      :mode="vitalMode"
+      :data="vitalWaveformData"
+      :width="800"
+      :height="400"
+      :dark-background="darkBackground"
+    />
     
     <!-- Status display area (2 lines) -->
     <div class="status-display">
