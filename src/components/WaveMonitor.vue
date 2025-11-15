@@ -245,7 +245,7 @@
     <HRRRWaveform 
       :mode="vitalMode"
       :data="vitalWaveformData"
-      :width="800"
+      :width="590"
       :height="440"
       :dark-background="darkBackground"
       :start-epoch="vitalStartEpoch"
@@ -301,7 +301,7 @@ const darkBackground = ref(true);     // 背景色（默认黑色）
 
 // HR/RR波形数据
 const vitalMode = ref<'realtime' | 'history'>('history');  // 波形模式
-const vitalWaveformData = ref<Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }>>([]);  // 波形数据
+const vitalWaveformData = ref<Array<{ timestamp: number; hr?: number; rr?: number; sleepStage?: number }>>([]);  // 波形数据（hr和rr可选，允许中断）
 const vitalParsedData = ref<Array<{ timestamp: number; hr: number; rr: number; sleepStage?: number }>>([]);  // 解析后的临时数据
 const vitalStartEpoch = ref<number>(0);  // 历史数据的起始时间（秒，epoch）
 const vitalEndEpoch = ref<number>(0);    // 历史数据的结束时间（秒，epoch）
@@ -347,7 +347,8 @@ const canLoadVitalFile = computed(() => {
 });
 
 const canRealTimeVital = computed(() => {
-  return vitalFileName.value && vitalFileContent.value;
+  // RealTime模式从radarDataStore获取数据，不需要文件
+  return true;
 });
 
 // 已播放分钟数
@@ -428,7 +429,7 @@ const handlePlayDemo = () => {
   timeInput.value = formatTimestamp(demoStart);
   
   useEventTime.value = false;
-  timeLong.value = 2;
+  timeLong.value = 2;  // Demo场景实际是2分钟（120秒）
   playbackSpeed.value = 1;
   
   // Start playback
@@ -546,15 +547,69 @@ const handleLoadVitalFile = () => {
 
 const handleRealTimeVital = () => {
   console.log('🔴 RealTime HR/RR');
+  console.log('   当前radarDataStore.persons:', radarDataStore.persons.length);
   
   // 切换到实时模式
   vitalMode.value = 'realtime';
   vitalWaveformData.value = [];  // 清空数据，准备接收实时数据
+  vitalStartEpoch.value = Math.floor(Date.now() / 1000);  // 记录起始时间
+  lastVitalUpdateTime = 0;  // 重置时间
+  lastVitalValues = { hr: undefined, rr: undefined };  // 重置上次值
   
-  console.log('✅ 切换到实时模式');
-  // TODO: 连接WebSocket或轮询获取实时数据
-  alert('RealTime mode: Ready (需要实现WebSocket连接)');
+  console.log('✅ 切换到实时模式，开始接收radar数据');
+  console.log('   提示：如果没有数据，请先点击 Demo 按钮启动仿真数据');
 };
+
+// 监听radarDataStore的实时vital数据
+let lastVitalUpdateTime = 0;
+let lastVitalValues = { hr: undefined as number | undefined, rr: undefined as number | undefined };
+
+watch(() => radarDataStore.persons, (persons) => {
+  // 只在实时模式下处理
+  if (vitalMode.value !== 'realtime') {
+    return;
+  }
+  
+  const now = Date.now() / 1000;  // 当前epoch秒
+  
+  // 获取第一个人员（如果存在）
+  const person = persons.length > 0 ? persons[0] : null;
+  
+  if (!person) {
+    // console.log('⚠️  没有人员数据');
+    return;
+  }
+  
+  const currentHR = person.heartRate !== undefined && person.heartRate > 0 ? person.heartRate : undefined;
+  const currentRR = person.breathRate !== undefined && person.breathRate > 0 ? person.breathRate : undefined;
+  
+  // 时间防抖：必须至少间隔1.8秒（mockRadarData每2秒更新一次vital）
+  const timePassed = now - lastVitalUpdateTime;
+  if (timePassed < 1.8) {
+    return;  // 间隔太短，跳过
+  }
+  
+  lastVitalUpdateTime = now;
+  lastVitalValues = { hr: currentHR, rr: currentRR };
+  
+  const relativeTime = now - vitalStartEpoch.value;  // 相对起始时间的秒数
+  
+  // 添加数据点（保留undefined，允许数据中断）
+  vitalWaveformData.value.push({
+    timestamp: relativeTime,
+    hr: currentHR,
+    rr: currentRR,
+    sleepStage: person.sleepState
+  });
+  
+  // 保留窗口外的数据（用于平滑滚动），但限制总数
+  const maxDataPoints = 100;  // 最多保留100个点
+  if (vitalWaveformData.value.length > maxDataPoints) {
+    vitalWaveformData.value.shift();
+  }
+  
+  console.log(`📊 RealTime Vital: t=${relativeTime.toFixed(1)}s, HR=${currentHR}, RR=${currentRR}, Δt=${timePassed.toFixed(1)}s`);
+}, { deep: true });
 
 // 限制Track时长输入范围（2-30分钟）
 const limitTimeLong = () => {
@@ -657,8 +712,8 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
         objectsStore.objects  // 传递 Canvas 对象数组
       );
       
-      // 获取仿真历史数据（生成240秒=4分钟的数据）
-      const demoSeconds = 240;
+      // 获取仿真历史数据（生成120秒=2分钟的演示场景）
+      const demoSeconds = 120;
       historicalData = mockService.getHistoricalData(demoSeconds);
       totalSeconds.value = historicalData.length;
       
@@ -743,8 +798,18 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       // 下一帧
       currentIndex++;
       
-      // 根据播放速度调整间隔（基准：1秒）
-      const interval = 1000 / playbackSpeed.value;
+      // 计算真实时间间隔（根据timestamp差值）
+      let interval = 1000;  // 默认1秒
+      if (currentIndex < historicalData.length) {
+        const currentTimestamp = frameData.timestamp;
+        const nextTimestamp = historicalData[currentIndex].timestamp;
+        const timeDiff = nextTimestamp - currentTimestamp;  // 秒
+        interval = timeDiff * 1000;  // 转换为毫秒
+      }
+      
+      // 应用播放速度调整
+      interval = interval / playbackSpeed.value;
+      
       playbackIntervalId = window.setTimeout(playNextFrame, interval);
     };
     

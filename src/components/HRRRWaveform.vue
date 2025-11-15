@@ -107,13 +107,18 @@ const SLEEP_STATE_COLORS: Record<string, string> = {
   'Not monitoring': '#BFBFBF'   // 中灰色
 };
 
-// 从sleep_stage bit字段解析睡眠状态
+// 从sleep_stage解析睡眠状态
 const parseSleepState = (sleepStage: number | undefined): string => {
-  if (sleepStage === undefined || sleepStage === null) {
+  if (sleepStage === undefined || sleepStage === null || sleepStage === 0) {
     return 'Not monitoring';
   }
   
-  // 提取bit 7-6（睡眠状态）
+  // 直接值映射（某些数据源直接使用数字表示状态）
+  if (sleepStage === 1) return 'Light sleep';   // 1: 浅睡
+  if (sleepStage === 2) return 'Deep sleep';    // 2: 深睡
+  if (sleepStage === 3) return 'Awake';         // 3: 清醒
+  
+  // bit字段模式（提取bit 7-6）
   const sleepBits = (sleepStage >> 6) & 0b11;
   
   switch (sleepBits) {
@@ -187,6 +192,11 @@ const drawWaveform = () => {
   // 清空画布
   ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
   
+  // 调试信息
+  if (props.mode === 'realtime' && props.data.length > 0) {
+    console.log(`🎨 绘制波形: 数据点=${props.data.length}, 最新时间=${props.data[props.data.length - 1].timestamp.toFixed(1)}s`);
+  }
+  
   // 绘制背景（根据darkBackground属性）
   const bgColor = props.data.length > 0 && props.darkBackground ? '#1a1a1a' : '#ffffff';
   const fgColor = props.data.length > 0 && props.darkBackground ? '#ffffff' : '#333333';
@@ -197,7 +207,7 @@ const drawWaveform = () => {
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value);
   
   // 计算边距
-  const padding = { left: 35, right: 30, top: 10, bottom: 60 };  // left=35, right=30增加右边距
+  const padding = { left: 35, right: 10, top: 10, bottom: 60 };  // right=10px
   const chartWidth = canvasWidth.value - padding.left - padding.right;
   const chartHeight = canvasHeight.value - padding.top - padding.bottom;
   
@@ -211,14 +221,54 @@ const drawWaveform = () => {
     return padding.top + chartHeight * (1 - ratio);  // Y轴向下
   };
   
+  // 辅助函数：timestamp到X坐标（用于实时模式和绘制）
+  const timestampToX = (timestamp: number): number => {
+    if (props.mode === 'realtime') {
+      const windowSize = 30;  // 30秒窗口
+      
+      // 使用props.data而不是displayData，避免循环引用
+      const allData = props.data;
+      if (allData.length === 0) return padding.left;
+      
+      const latestTimestamp = allData[allData.length - 1].timestamp;
+      
+      // 窗口起始时间
+      const windowStart = Math.max(0, latestTimestamp - windowSize);
+      
+      // 计算该点在窗口中的位置
+      const ratio = (timestamp - windowStart) / windowSize;
+      return padding.left + chartWidth * Math.max(0, Math.min(1, ratio));
+    } else {
+      // 历史模式使用分钟边界计算
+      const startEpoch = props.startEpoch || 0;
+      const endEpoch = props.endEpoch || startEpoch;
+      if (startEpoch > 0 && endEpoch > 0) {
+        const startMinuteBoundary = Math.floor(startEpoch / 60) * 60;
+        const endMinuteBoundary = Math.ceil(endEpoch / 60) * 60;
+        const pointEpoch = startEpoch + timestamp;
+        const ratio = (pointEpoch - startMinuteBoundary) / (endMinuteBoundary - startMinuteBoundary);
+        return padding.left + chartWidth * ratio;
+      }
+      return padding.left;
+    }
+  };
+  
   // 辅助函数：索引到X坐标
   const indexToX = (index: number): number => {
     if (props.mode === 'realtime') {
-      // 实时模式：固定300秒窗口
-      const windowSize = 300;
-      const dataLength = Math.min(props.data.length, windowSize);
-      const ratio = index / dataLength;
-      return padding.left + chartWidth * ratio;
+      // 实时模式：根据timestamp计算位置（30秒窗口）
+      const windowSize = 30;  // 30秒窗口
+      if (index < 0 || index >= props.data.length) return padding.left;
+      
+      const point = props.data[index];
+      const latestTimestamp = props.data.length > 0 ? props.data[props.data.length - 1].timestamp : 0;
+      
+      // 计算该点相对于最新点的时间差
+      const timeFromLatest = point.timestamp - latestTimestamp;  // 负值，表示多少秒前
+      
+      // 将时间映射到X轴（-30s到0s）
+      const ratio = (timeFromLatest + windowSize) / windowSize;  // 0到1
+      return padding.left + chartWidth * Math.max(0, Math.min(1, ratio));
     } else {
       // 历史模式：基于分钟边界计算
       const startEpoch = props.startEpoch || 0;
@@ -327,21 +377,44 @@ const drawWaveform = () => {
     ctx.textBaseline = 'top';
     
     if (props.mode === 'realtime') {
-      // 实时模式：-300s to 0s (now)
-      const ticks = [-300, -240, -180, -120, -60, 0];
-      ticks.forEach((tick, index) => {
-        const x = padding.left + (chartWidth * (index / (ticks.length - 1)));
-        const y = canvasHeight.value - padding.bottom;
-        // 刻度线
-        ctx.strokeStyle = gridColor;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + 5);
-        ctx.stroke();
-        // 标签
-        ctx.fillStyle = textColor;
-        ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
-      });
+      // 实时模式：动态刻度，根据当前时间调整
+      const latestTimestamp = props.data.length > 0 ? props.data[props.data.length - 1].timestamp : 0;
+      
+      // 如果还在前30秒，刻度从0开始；否则显示滚动窗口
+      if (latestTimestamp <= 30) {
+        // 前30秒：0s, 5s, 10s, 15s, 20s, 25s, 30s
+        const ticks = [0, 5, 10, 15, 20, 25, 30];
+        ticks.forEach((tick) => {
+          const ratio = tick / 30;
+          const x = padding.left + (chartWidth * ratio);
+          const y = canvasHeight.value - padding.bottom;
+          // 刻度线
+          ctx.strokeStyle = gridColor;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 5);
+          ctx.stroke();
+          // 标签
+          ctx.fillStyle = textColor;
+          ctx.fillText(`${tick}s`, x, y + 8);
+        });
+      } else {
+        // >30秒：滚动窗口，显示相对于now的时间
+        const ticks = [-30, -25, -20, -15, -10, -5, 0];
+        ticks.forEach((tick, index) => {
+          const x = padding.left + (chartWidth * (index / (ticks.length - 1)));
+          const y = canvasHeight.value - padding.bottom;
+          // 刻度线
+          ctx.strokeStyle = gridColor;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 5);
+          ctx.stroke();
+          // 标签
+          ctx.fillStyle = textColor;
+          ctx.fillText(tick === 0 ? 'now' : `${tick}s`, x, y + 8);
+        });
+      }
     } else {
       // 历史模式：X轴对齐到分钟边界
       const startEpoch = props.startEpoch || 0;
@@ -353,8 +426,32 @@ const drawWaveform = () => {
         const endMinuteBoundary = Math.ceil(endEpoch / 60) * 60;
         const totalMinutes = Math.ceil((endMinuteBoundary - startMinuteBoundary) / 60);
         
-        // 绘制分钟刻度（每分钟一个刻度）
-        for (let i = 0; i <= totalMinutes; i++) {
+        // 决定显示哪些刻度
+        let ticksToShow: number[] = [];
+        
+        if (totalMinutes > 30) {
+          // 超过30分钟：首尾 + 5的倍数
+          ticksToShow.push(0); // 首（起始分钟）
+          
+          // 中间：5的倍数
+          for (let i = 1; i < totalMinutes; i++) {
+            const tickEpoch = startMinuteBoundary + (i * 60);
+            const minutes = new Date(tickEpoch * 1000).getMinutes();
+            if (minutes % 5 === 0) {
+              ticksToShow.push(i);
+            }
+          }
+          
+          ticksToShow.push(totalMinutes); // 尾（结束分钟）
+        } else {
+          // <=30分钟：每分钟显示
+          for (let i = 0; i <= totalMinutes; i++) {
+            ticksToShow.push(i);
+          }
+        }
+        
+        // 绘制刻度
+        ticksToShow.forEach(i => {
           const tickEpoch = startMinuteBoundary + (i * 60);
           const ratio = (tickEpoch - startMinuteBoundary) / (endMinuteBoundary - startMinuteBoundary);
           const x = padding.left + (chartWidth * ratio);
@@ -372,7 +469,7 @@ const drawWaveform = () => {
           const date = new Date(tickEpoch * 1000);
           const minutes = date.getMinutes();
           ctx.fillText(`${minutes}`, x, y + 8);
-        }
+        });
       }
     }
   }
@@ -386,7 +483,9 @@ const drawWaveform = () => {
     // 按数据点绘制睡眠状态色块
     let displayData = props.data;
     if (props.mode === 'realtime') {
-      displayData = props.data.slice(-300);
+      // 实时模式：过滤最近30秒内的数据
+      const latestTimestamp = props.data.length > 0 ? props.data[props.data.length - 1].timestamp : 0;
+      displayData = props.data.filter(p => p.timestamp >= latestTimestamp - 30);
     }
     
     displayData.forEach((point, index) => {
@@ -394,8 +493,14 @@ const drawWaveform = () => {
       const color = SLEEP_STATE_COLORS[sleepState];
       
       // 计算色块宽度（当前点到下一个点的距离）
-      const x1 = indexToX(index);
-      const x2 = index < displayData.length - 1 ? indexToX(index + 1) : canvasWidth.value - padding.right;
+      const x1 = props.mode === 'realtime' 
+        ? timestampToX(point.timestamp)
+        : indexToX(index);
+      const x2 = index < displayData.length - 1 
+        ? (props.mode === 'realtime' 
+            ? timestampToX(displayData[index + 1].timestamp)
+            : indexToX(index + 1))
+        : canvasWidth.value - padding.right;
       const blockWidth = x2 - x1;
       
       ctx.fillStyle = color;
@@ -417,39 +522,86 @@ const drawWaveform = () => {
   // 获取显示数据
   let displayData = props.data;
   if (props.mode === 'realtime') {
-    // 实时模式：只显示最近300秒
-    displayData = props.data.slice(-300);
+    // 实时模式：过滤最近30秒内的数据（根据timestamp）
+    const latestTimestamp = props.data.length > 0 ? props.data[props.data.length - 1].timestamp : 0;
+    displayData = props.data.filter(p => p.timestamp >= latestTimestamp - 30);
   }
   
-  // 绘制HR数据点（根据值动态变色）
-  displayData.forEach((point, index) => {
+  // 绘制HR曲线（相邻点连线或孤立点）
+  ctx.lineWidth = 2;
+  for (let i = 0; i < displayData.length; i++) {
+    const point = displayData[i];
     if (point.hr && point.hr > 0) {
-      const x = indexToX(index);
+      const x = timestampToX(point.timestamp);
       const y = valueToY(point.hr);
       const color = getHRColor(point.hr);
       
-      // 绘制圆点
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);  // 半径3px的圆点
-      ctx.fill();
+      // 检查前后是否有相邻点
+      const hasPrev = i > 0 && displayData[i - 1].hr && displayData[i - 1].hr > 0;
+      const hasNext = i < displayData.length - 1 && displayData[i + 1].hr && displayData[i + 1].hr > 0;
+      
+      if (hasPrev) {
+        // 有前一个点，画线段到当前点
+        const prevPoint = displayData[i - 1];
+        const prevX = timestampToX(prevPoint.timestamp);
+        const prevY = valueToY(prevPoint.hr);
+        const prevColor = getHRColor(prevPoint.hr);
+        
+        // 用前一点的颜色画线
+        ctx.strokeStyle = prevColor;
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+      
+      if (!hasPrev && !hasNext) {
+        // 孤立点，画圆点
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
-  });
+  }
   
-  // 绘制RR数据点（根据值动态变色）
-  displayData.forEach((point, index) => {
+  // 绘制RR曲线（相邻点连线或孤立点）
+  ctx.lineWidth = 2;
+  for (let i = 0; i < displayData.length; i++) {
+    const point = displayData[i];
     if (point.rr && point.rr > 0) {
-      const x = indexToX(index);
+      const x = timestampToX(point.timestamp);
       const y = valueToY(point.rr);
       const color = getRRColor(point.rr);
       
-      // 绘制圆点
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);  // 半径3px的圆点
-      ctx.fill();
+      // 检查前后是否有相邻点
+      const hasPrev = i > 0 && displayData[i - 1].rr && displayData[i - 1].rr > 0;
+      const hasNext = i < displayData.length - 1 && displayData[i + 1].rr && displayData[i + 1].rr > 0;
+      
+      if (hasPrev) {
+        // 有前一个点，画线段到当前点
+        const prevPoint = displayData[i - 1];
+        const prevX = timestampToX(prevPoint.timestamp);
+        const prevY = valueToY(prevPoint.rr);
+        const prevColor = getRRColor(prevPoint.rr);
+        
+        // 用前一点的颜色画线
+        ctx.strokeStyle = prevColor;
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+      
+      if (!hasPrev && !hasNext) {
+        // 孤立点，画圆点
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
-  });
+  }
   
   // 历史模式：绘制当前时间指示线
   if (props.mode === 'history' && currentTime.value > 0) {
@@ -483,7 +635,7 @@ const handleMouseMove = (e: MouseEvent) => {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   
-  const padding = { left: 35, right: 30, top: 10, bottom: 60 };  // 与绘制函数保持一致
+  const padding = { left: 35, right: 10, top: 10, bottom: 60 };  // 与绘制函数保持一致
   const chartWidth = canvasWidth.value - padding.left - padding.right;
   
   // 检查是否在图表区域内

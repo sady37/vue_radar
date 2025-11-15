@@ -2140,6 +2140,21 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
   ctx.restore();
 };
 
+// 图标缓存（避免每次重新加载导致闪烁）
+const vitalIconCache = new Map<string, HTMLImageElement>();
+
+// 预加载vital图标
+const preloadVitalIcon = (iconPath: string): HTMLImageElement => {
+  if (vitalIconCache.has(iconPath)) {
+    return vitalIconCache.get(iconPath)!;
+  }
+  
+  const icon = new Image();
+  icon.src = iconPath;
+  vitalIconCache.set(iconPath, icon);
+  return icon;
+};
+
 // 绘制生理状态面板
 const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   const vital = radarDataStore.currentVital;
@@ -2162,7 +2177,7 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   
   // 全透明背景，只显示图标和文字
   
-  // 统一图标加载和绘制函数
+  // 统一图标绘制函数（使用缓存的图标）
   const drawIconAndText = (
     iconConfig: PostureIconConfig, 
     x: number, 
@@ -2171,16 +2186,18 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   ) => {
     if (!iconConfig.iconPath) return;
     
-    const icon = new Image();
-    icon.src = iconConfig.iconPath;
-    icon.onload = () => {
+    // 使用缓存的图标，同步绘制（避免闪烁）
+    const icon = preloadVitalIcon(iconConfig.iconPath);
+    if (icon.complete) {
+      // 图标已加载，直接绘制
       ctx.drawImage(icon, x, y, iconConfig.size, iconConfig.size);
-      // 在图标加载完成后绘制文字
+      // 绘制文字
       ctx.font = '14px Arial';
       ctx.fillStyle = '#333';
       ctx.textAlign = 'left';
       ctx.fillText(value, x + iconConfig.size + 8, y + iconConfig.size/2 + 5);
-    };
+    }
+    // 如果图标未加载完成，下一帧会自动重绘
   };
 
   // 心率

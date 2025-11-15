@@ -544,8 +544,8 @@ private behaviorSystem = {
     this.vitalStateStartTime = 0;
   }
 
-  // 获取历史数据（用于回放）- 生成仿真数据（4分钟演示场景）
-  getHistoricalData(durationSeconds: number = 240): any[] {
+  // 获取历史数据（用于回放）- 生成仿真数据（2分钟演示场景）
+  getHistoricalData(durationSeconds: number = 120): any[] {
     console.log(`🎲 生成 ${durationSeconds} 秒的仿真历史数据...`);
     console.log(`📦 雷达对象数量: ${this.radarObjects.length}`);
     
@@ -661,7 +661,7 @@ private behaviorSystem = {
       { type: 'L1', duration: 5 }
     ];
     
-    // 定义床下场景的12个周期（每个5秒）
+    // 定义床下场景的12个周期（每个5秒，共60秒）
     const groundScenarios = [
       // 2个站立
       { posture: PersonPosture.Standing, duration: 5 },
@@ -684,7 +684,7 @@ private behaviorSystem = {
       { posture: PersonPosture.Sitting, duration: 5 }
     ];
     
-    // 生成2分钟数据
+    // 生成演示数据（默认120秒=2分钟）
     for (let i = 0; i < durationSeconds; i++) {
       // ========== 前60秒：床上场景（0-59秒）==========
       if (i < 60) {
