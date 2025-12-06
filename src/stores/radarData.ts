@@ -158,7 +158,7 @@ export const useRadarDataStore = defineStore('radarData', {
      */
     setActiveRadar(radarId: string) {
       this.activeRadarId = radarId;
-      console.log(`📡 激活雷达: ${radarId}`);
+      console.log(`📡 Activated radar: ${radarId}`);
     },
     
     /**
@@ -166,7 +166,7 @@ export const useRadarDataStore = defineStore('radarData', {
      */
     setConnected(connected: boolean) {
       this.isConnected = connected;
-      console.log(`📡 雷达连接: ${connected ? '已连接' : '已断开'}`);
+      console.log(`📡 Radar connection: ${connected ? 'Connected' : 'Disconnected'}`);
     },
     
     /**
@@ -326,7 +326,7 @@ export const useRadarDataStore = defineStore('radarData', {
       this.persons = [];
       this.trajectories = {};
       this.lastUpdate = 0;
-      console.log('🧹 清空雷达数据');
+      console.log('🧹 Cleared radar data');
     },
     
     /**
@@ -358,7 +358,7 @@ export const useRadarDataStore = defineStore('radarData', {
         }
       });
       
-      console.log(`🧹 清空雷达 ${deviceCode} 的数据`);
+      console.log(`🧹 Cleared radar ${deviceCode} data`);
     },
     
     /**
@@ -382,7 +382,7 @@ export const useRadarDataStore = defineStore('radarData', {
       });
       
       if (inactiveKeys.length > 0) {
-        console.log(`🧹 移除 ${inactiveKeys.length} 个离场人员`);
+        console.log(`🧹 Removed ${inactiveKeys.length} inactive persons`);
       }
     },
     
@@ -416,7 +416,7 @@ export const useRadarDataStore = defineStore('radarData', {
         }
       ]);
       
-      console.log('🎲 加载模拟数据');
+      console.log('🎲 Loading simulated data');
     },
     
     /**
@@ -424,7 +424,7 @@ export const useRadarDataStore = defineStore('radarData', {
      */
     setPlaybackMode(enabled: boolean) {
       this.isPlaybackMode = enabled;
-      console.log(`🎬 回放模式: ${enabled ? '启用' : '禁用'}`);
+      console.log(`🎬 Playback mode: ${enabled ? 'Enabled' : 'Disabled'}`);
     },
     
     /**
@@ -433,7 +433,42 @@ export const useRadarDataStore = defineStore('radarData', {
     clearAllData() {
       this.persons = [];
       this.trajectories = {};
-      console.log('🧹 已清除所有人员和轨迹数据');
+      console.log('🧹 Cleared all person and trajectory data');
+    },
+    
+    /**
+     * 设置数据模式（用于回放）
+     */
+    setMode(mode: 'realtime' | 'fromserver' | 'fromfile' | 'demo') {
+      // 可以根据需要设置不同的模式状态
+      if (mode === 'fromserver' || mode === 'fromfile' || mode === 'demo') {
+        this.isPlaybackMode = true;
+      } else {
+        this.isPlaybackMode = false;
+      }
+      console.log(`📡 Data mode set to: ${mode}`);
+    },
+    
+    /**
+     * 加载历史数据（用于回放）
+     */
+    loadHistoricalData(data: any[]) {
+      // 清空现有数据
+      this.persons = [];
+      this.trajectories = {};
+      
+      // 将历史数据转换为人员数据
+      if (Array.isArray(data) && data.length > 0) {
+        data.forEach((frame: any) => {
+          if (frame.persons && Array.isArray(frame.persons)) {
+            frame.persons.forEach((person: any) => {
+              this.addPerson(person);
+            });
+          }
+        });
+      }
+      
+      console.log(`📊 Loaded ${data.length} historical data frames`);
     }
   }
 });

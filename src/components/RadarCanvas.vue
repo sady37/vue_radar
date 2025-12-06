@@ -125,7 +125,7 @@ const fallAlarmSet = new Set<string>();
 
 // 预加载所有姿态图标
 const preloadPostureIcons = async (): Promise<void> => {
-  console.log('🔄 开始预加载姿态图标...');
+  console.log('🔄 Starting to preload posture icons...');
   console.log(`📦 POSTURE_CONFIGS keys:`, Object.keys(POSTURE_CONFIGS));
   
   const promises = Object.entries(POSTURE_CONFIGS).map(([postureId, config]) => {
@@ -153,9 +153,9 @@ const preloadPostureIcons = async (): Promise<void> => {
   
   try {
     await Promise.all(promises);
-    console.log(`✅ 图标预加载完成，缓存中有 ${postureImageCache.size} 个图标`);
+    console.log(`✅ Posture icon preloading completed, ${postureImageCache.size} icons in cache`);
   } catch (e) {
-    console.error('❌ 图标预加载出错:', e);
+    console.error('❌ Posture icon preloading error:', e);
   }
 };
 
@@ -340,7 +340,7 @@ const handleMouseMove = (event: MouseEvent) => {
       draggedObject.value = null;
       controlPointIndex.value = -1;
       cursorStyle.value = 'default';
-      console.log('⚠️ 拖动被中断：对象已锁定');
+      console.log('⚠️ Drag interrupted: object is locked');
       return;
     }
     
@@ -417,7 +417,7 @@ const handleMouseDown = (event: MouseEvent) => {
   if (selectedObj) {
     // 检查对象是否被锁定
     if (selectedObj.interactive?.locked) {
-      console.log('⚠️ 对象已锁定，无法拖动');
+      console.log('⚠️ Object is locked, cannot drag');
       return;
     }
     
@@ -431,7 +431,7 @@ const handleMouseDown = (event: MouseEvent) => {
       draggedObject.value = selectedObj;
       controlPointIndex.value = cpCheck.index;
       cursorStyle.value = 'grabbing';
-      console.log('🎯 开始拖动控制点:', cpCheck.point.type);
+      console.log('🎯 Starting to drag control point:', cpCheck.point.type);
       return;
     }
     
@@ -443,7 +443,7 @@ const handleMouseDown = (event: MouseEvent) => {
       dragStartPos.value = { x: logicalX, y: logicalY };
       draggedObject.value = selectedObj;
       cursorStyle.value = 'grabbing';
-      console.log('🎯 开始拖动对象:', selectedObj.name || selectedObj.typeName);
+      console.log('🎯 Starting to drag object:', selectedObj.name || selectedObj.typeName);
       return;
     }
   }
@@ -566,7 +566,7 @@ const handleMouseUp = (event: MouseEvent) => {
     // 自动选中新创建的对象
     if (newObjectId) {
       objectsStore.selectObject(newObjectId);
-      console.log('✅ 创建并选中对象:', newObjectId);
+      console.log('✅ Created and selected object:', newObjectId);
     }
     
     redrawCanvas();
@@ -648,7 +648,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
   const objectId = `obj_${Date.now()}`;
   let newObject: any = null;
 
-  console.log('📍 创建对象坐标 (逻辑):', { 
+  console.log('📍 Creating object coordinates (logical):', { 
     start: { x: startX, y: startY }, 
     end: { x: endX, y: endY },
     color: drawingParams.color,
@@ -660,7 +660,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
       // 计算线段长度，确保最小长度为5
       const lineLength = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
       if (lineLength < 5) {
-        console.log('⚠️ 线段长度太小（最小5），已取消创建');
+        console.log('⚠️ Line segment too short (minimum 5), creation cancelled');
         return null;
       }
       
@@ -708,7 +708,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
       const rectWidth = maxX - minX;
       const rectHeight = maxY - minY;
       if (rectWidth < 5 || rectHeight < 5) {
-        console.log('⚠️ 矩形尺寸太小（最小5x5），已取消创建');
+        console.log('⚠️ Rectangle size too small (minimum 5x5), creation cancelled');
         return null;
       }
       
@@ -749,7 +749,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
       
       // 确保最小半径为5
       if (radius < 5) {
-        console.log('⚠️ 圆形半径太小（最小5），已取消创建');
+        console.log('⚠️ Circle radius too small (minimum 5), creation cancelled');
         return null;
       }
       
@@ -786,7 +786,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
       
       // 确保最小半径为5
       if (sectorRadius < 5) {
-        console.log('⚠️ 扇形半径太小（最小5），已取消创建');
+        console.log('⚠️ Sector radius too small (minimum 5), creation cancelled');
         return null;
       }
       
@@ -836,7 +836,7 @@ const createObjectFromDrawing = (startX: number, startY: number, endX: number, e
 
   if (newObject) {
     objectsStore.addObject(newObject);
-    console.log('✅ 创建对象:', newObject.name);
+    console.log('✅ Created object:', newObject.name);
     return objectId; // 返回新对象的ID
   }
   
@@ -930,7 +930,7 @@ const handleCanvasClick = (event: MouseEvent) => {
     
     objectsStore.addObject(newDevice);
     canvasStore.setPendingObjectType(null); // 清除待放置状态
-    console.log(`✅ 在 (${logicalX}, ${logicalY}) 创建设备: ${type}`);
+    console.log(`✅ Created device at (${logicalX}, ${logicalY}): ${type}`);
     return;
   }
 
@@ -1046,7 +1046,7 @@ const handleContextLockUnlock = () => {
           locked: newLockedState
         }
       });
-      console.log(newLockedState ? '🔒 对象已锁定' : '🔓 对象已解锁');
+      console.log(newLockedState ? '🔒 Object locked' : '🔓 Object unlocked');
       redrawCanvas();
     }
     showContextMenu.value = false;
@@ -1059,7 +1059,7 @@ const updateObjectPosition = (obj: BaseObject, deltaX: number, deltaY: number) =
   
   // 检查对象是否被锁定
   if (obj.interactive?.locked) {
-    console.log('⚠️ 对象已锁定，无法移动');
+    console.log('⚠️ Object is locked, cannot move');
     return;
   }
   
@@ -1163,7 +1163,7 @@ const updateObjectByControlPoint = (obj: BaseObject, controlPointIndex: number, 
   
   // 检查对象是否被锁定
   if (obj.interactive?.locked) {
-    console.log('⚠️ 对象已锁定，无法调整');
+    console.log('⚠️ Object is locked, cannot adjust');
     return;
   }
   
@@ -1336,7 +1336,7 @@ const handleCanvasDblClick = (_event: MouseEvent) => {
   canvasStore.setDrawingMode(null);
   canvasStore.setPendingObjectType(null);
   
-  console.log('🔄 双击画布，重置所有选中状态');
+  console.log('🔄 Double-clicked canvas, reset all selected states');
 };
 
 // 判断点是否在对象内
@@ -1481,11 +1481,11 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     if (person.id === 88) return;
     
     // 检测跌倒并播放报警声（每个人每次跌倒只播放一次）
-    const personKey = `${person.deviceCode}_${person.personIndex}_${person.posture}`;
+    const personKey = `${person.deviceCode}_${person.personIndex}`;
     if (person.posture === PersonPosture.FallConfirm) {
       if (!fallAlarmSet.has(personKey)) {
-        console.log(`🚨 跌倒报警：Person ${person.personIndex}`);
-        alarmSound.playAlarm();
+        console.log(`🚨 Fall alarm: Person ${person.personIndex}`);
+        alarmSound.playAlarm(1); // 跌倒是一级报警
         fallAlarmSet.add(personKey);
         
         // 5秒后清除记录（允许再次报警）
@@ -1500,7 +1500,7 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     
     // 调试person对象（仅首个人首帧）
     if (i === 0) {
-      console.log(`🧍 Person数据:`, {
+      console.log(`🧍 Person data:`, {
         id: person.id,
         posture: person.posture,
         position: person.position,
@@ -1520,7 +1520,7 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     
     // 调试插值后的位置
     if (i === 0) {
-      console.log(`📍 插值后位置:`, currentPos);
+      console.log(`📍 Interpolated position:`, currentPos);
     }
     
     // ===== 坐标转换：雷达坐标系 -> 画布坐标系 =====
@@ -1528,7 +1528,7 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
     
     if (!radar) {
-      console.warn(`⚠️ Canvas 中无雷达对象`);
+      console.warn(`⚠️ No radar object in Canvas`);
       return;
     }
     
@@ -1550,7 +1550,7 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     
     // 调试坐标转换（仅首帧）
     if (i === 0) {
-      console.log(`📍 人员坐标转换:`, {
+      console.log(`📍 Person coordinate conversion:`, {
         雷达坐标: `(H=${radarPoint.h}, V=${radarPoint.v})`,
         Canvas坐标: `(${canvasPoint.x.toFixed(1)}, ${canvasPoint.y.toFixed(1)})`,
         屏幕坐标: `(${screenX.toFixed(1)}, ${screenY.toFixed(1)})`
@@ -1610,8 +1610,17 @@ const drawPersons = (ctx: CanvasRenderingContext2D) => {
     // 绘制人员标签
     drawPersonLabel(ctx, person, screenX, screenY);
     
-    // 绘制轨迹（始终显示，但移动时排除最后一个点）
-    if (person.deviceCode && person.personIndex !== undefined) {
+    // 绘制轨迹（仅床上特定姿态时不显示轨迹点）
+    // 不显示轨迹的情况：在床上（areaId === 1）且姿态是 Lying, SitUpBed, SitUpBedSuspect, SitUpBedConfirm
+    const shouldHideTrajectory = 
+      person.areaId === 1 && ( // 在床上
+        person.posture === PersonPosture.Lying || // 躺下
+        person.posture === PersonPosture.SitUpBed || // 床上坐起
+        person.posture === PersonPosture.SitUpBedSuspect || // 床上坐起可疑
+        person.posture === PersonPosture.SitUpBedConfirm // 床上坐起确认
+      );
+    
+    if (person.deviceCode && person.personIndex !== undefined && !shouldHideTrajectory) {
       drawPersonTrajectory(ctx, person.deviceCode, person.personIndex, moving);
     }
   });
@@ -1671,7 +1680,7 @@ const drawPersonTrajectory = (
   
   // 🔍 调试轨迹数量
   if (personIndex === 0) {
-    console.log(`🔍 轨迹绘制 (person ${personIndex}, moving=${isMoving}):`, {
+    console.log(`🔍 Drawing trajectory (person ${personIndex}, moving=${isMoving}):`, {
       fullLength: fullTrajectory.length,
       filteredLength: trajectory.length,
       firstPoint: trajectory[0],
@@ -1683,7 +1692,7 @@ const drawPersonTrajectory = (
   const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
   
   if (!radar) {
-    console.warn(`⚠️ 轨迹：Canvas 中无雷达对象`);
+    console.warn(`⚠️ Trajectory: No radar object in Canvas`);
     return;
   }
   
@@ -2033,7 +2042,7 @@ const drawRadarBoundaries = (ctx: CanvasRenderingContext2D) => {
         drawRadarSignalArea(ctx, radar, originX);
       }
     } catch (error) {
-      console.warn('绘制雷达边界失败:', radar.name || radar.typeName, error);
+      console.warn('Failed to draw radar boundary:', radar.name || radar.typeName, error);
     }
   });
 };
@@ -2134,7 +2143,7 @@ const drawRadarSignalArea = (ctx: CanvasRenderingContext2D, radar: BaseObject, o
       ctx.fill();
     }
   } catch (error) {
-    console.warn('绘制雷达信号区域失败:', radar.name || radar.typeName, error);
+    console.warn('Failed to draw radar signal area:', radar.name || radar.typeName, error);
   }
   
   ctx.restore();
@@ -2165,7 +2174,7 @@ const drawStatusPanel = (ctx: CanvasRenderingContext2D) => {
   const logKey = 'vitalPanel';
   const win = window as any;
   if (!win[`_lastLog_${logKey}`] || now - win[`_lastLog_${logKey}`] > 30000) {
-    console.log(`💊 Vital面板:`, {
+    console.log(`💊 Vital panel:`, {
       heartRate: vital.heartRate,
       breathing: vital.breathing,
       sleepState: vital.sleepState
@@ -2385,7 +2394,7 @@ onMounted(async () => {
   try {
     await preloadPostureIcons();
   } catch (error) {
-    console.error('❌ 预加载姿态图标失败:', error);
+    console.error('❌ Failed to preload posture icons:', error);
   }
   
   redrawCanvas();
@@ -2589,7 +2598,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ff4d4f;  /* Off时红色 */
+  background-color: #bfbfbf;  /* Off时灰色 */
   transition: 0.3s;
   border-radius: 20px;
 }

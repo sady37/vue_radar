@@ -387,7 +387,7 @@ const handleFromFile = () => {
     
     try {
       const text = await file.text();
-      console.log('📂 文件加载成功:', file.name);
+      console.log('📂 File loaded successfully:', file.name);
       
       selectedFileName.value = file.name;
       selectedFileContent.value = text;
@@ -466,9 +466,9 @@ const handleVitalFromFile = () => {
         vitalParsedData.value = result.records;
         vitalStartEpoch.value = result.startEpoch;
         vitalEndEpoch.value = result.endEpoch;
-        console.log(`✅ 解析Vital CSV: ${result.records.length} 条记录`);
-        console.log(`   起始: ${new Date(result.startEpoch * 1000).toLocaleString()}`);
-        console.log(`   结束: ${new Date(result.endEpoch * 1000).toLocaleString()}`);
+        console.log(`✅ Parsed Vital CSV: ${result.records.length} records`);
+        console.log(`   Start: ${new Date(result.startEpoch * 1000).toLocaleString()}`);
+        console.log(`   End: ${new Date(result.endEpoch * 1000).toLocaleString()}`);
       }
       
       console.log(`✅ Vital file selected: ${file.name}`);
@@ -509,7 +509,7 @@ const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; h
       
       data.push(record);
     } catch (err) {
-      console.warn('Vital CSV行解析失败:', line, err);
+      console.warn('Vital CSV line parsing failed:', line, err);
     }
   }
   
@@ -529,7 +529,7 @@ const parseVitalCSV = (content: string): { records: Array<{ timestamp: number; h
     });
   }
   
-  console.log(`✅ Vital CSV解析完成: ${data.length} 条记录, 时长: ${data.length > 0 ? data[data.length - 1].timestamp : 0}秒`);
+  console.log(`✅ Vital CSV parsing completed: ${data.length} records, duration: ${data.length > 0 ? data[data.length - 1].timestamp : 0}s`);
   return { records: data, startEpoch, endEpoch };
 };
 
@@ -539,7 +539,7 @@ const handleLoadVitalFile = () => {
   if (vitalParsedData.value.length > 0) {
     vitalWaveformData.value = [...vitalParsedData.value];  // 复制数据
     vitalMode.value = 'history';
-    console.log(`✅ 加载Vital历史数据: ${vitalWaveformData.value.length} 条记录`);
+    console.log(`✅ Loaded Vital historical data: ${vitalWaveformData.value.length} records`);
   } else {
     alert('No data to load. Please select a file first.');
   }
@@ -547,7 +547,7 @@ const handleLoadVitalFile = () => {
 
 const handleRealTimeVital = () => {
   console.log('🔴 RealTime HR/RR');
-  console.log('   当前radarDataStore.persons:', radarDataStore.persons.length);
+  console.log('   Current radarDataStore.persons:', radarDataStore.persons.length);
   
   // 切换到实时模式
   vitalMode.value = 'realtime';
@@ -556,8 +556,8 @@ const handleRealTimeVital = () => {
   lastVitalUpdateTime = 0;  // 重置时间
   lastVitalValues = { hr: undefined, rr: undefined };  // 重置上次值
   
-  console.log('✅ 切换到实时模式，开始接收radar数据');
-  console.log('   提示：如果没有数据，请先点击 Demo 按钮启动仿真数据');
+  console.log('✅ Switched to realtime mode, starting to receive radar data');
+  console.log('   Tip: If no data, please click Demo button to start simulation data');
 };
 
 // 监听radarDataStore的实时vital数据
@@ -649,13 +649,13 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     // 验证展示雷达
     if (!displayRadarId.value && canvasRadars.value.length > 0) {
       displayRadarId.value = canvasRadars.value[0].id;
-      console.log(`🎯 自动选择展示雷达: ${canvasRadars.value[0].name}`);
+      console.log(`🎯 Auto-selected display radar: ${canvasRadars.value[0].name}`);
     }
     
     const displayRadar = canvasRadars.value.find(r => r.id === displayRadarId.value);
     
-    console.log(`\n🎬 开始回放 (${source})`);
-    console.log(`🎨 展示雷达: ${displayRadar?.name || '未选择'}`);
+    console.log(`\n🎬 Starting playback (${source})`);
+    console.log(`🎨 Display radar: ${displayRadar?.name || 'Not selected'}`);
     
     // 启用回放模式（禁用时间过滤）
     radarDataStore.setPlaybackMode(true);
@@ -665,7 +665,7 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     if (source === 'backend') {
       // 从服务器查询
       const queryParams = calculateTimeRange();
-      console.log('📡 查询参数:', queryParams);
+      console.log('📡 Query parameters:', queryParams);
       
       alert('Backend mode: Not implemented yet. Please use Demo mode.');
       radarDataStore.setPlaybackMode(false);
@@ -673,7 +673,7 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       
     } else if (source === 'file') {
       // 从文件回放
-      console.log('📂 文件:', selectedFileName.value);
+      console.log('📂 File:', selectedFileName.value);
       
       if (!selectedFileContent.value) {
         throw new Error('No file content loaded');
@@ -683,27 +683,27 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       historicalData = parseRealData(selectedFileContent.value);
       totalSeconds.value = historicalData.length;  // 每秒一条数据
       
-      console.log(`📊 文件数据: ${historicalData.length} 条记录`);
+      console.log(`📊 File data: ${historicalData.length} records`);
       
     } else if (source === 'demo') {
       // Demo 模式：仅生成雷达数据，使用Canvas中已有的布局
       console.log('🎲 Demo mode: Generating simulated radar data');
-      console.log('📦 使用Canvas布局，对象数量:', objectsStore.objects.length);
+      console.log('📦 Using Canvas layout, object count:', objectsStore.objects.length);
       
       // 检查是否有雷达
       const radar = objectsStore.objects.find(obj => obj.typeName === 'Radar');
       if (!radar) {
-        alert('⚠️ 请先加载Canvas布局（需要雷达对象）\n\n操作步骤：\n1. 点击 Load Layout\n2. 选择 Canvas_Tom.json\n3. 再点击 Demo');
+        alert('⚠️ Please load Canvas layout first (radar object required)\n\nSteps:\n1. Click Load Layout\n2. Select Canvas_Tom.json\n3. Then click Demo');
         radarDataStore.setPlaybackMode(false);
         return;
       }
       
       const bed = objectsStore.objects.find(obj => obj.typeName === 'Bed');
-      console.log(`✅ 使用展示雷达: ${radar.name || radar.id}`);
+      console.log(`✅ Using display radar: ${radar.name || radar.id}`);
       if (bed) {
-        console.log(`✅ 检测到床对象: ${bed.name || bed.id}`);
+        console.log(`✅ Bed object detected: ${bed.name || bed.id}`);
       } else {
-        console.log('⚠️ 未检测到床对象，将使用雷达中心区域模拟床上场景');
+        console.log('⚠️ No bed object detected, will use radar center area to simulate on-bed scenario');
       }
       
       // 创建 MockRadarService 实例（传递 Canvas 对象）
@@ -717,10 +717,10 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       historicalData = mockService.getHistoricalData(demoSeconds);
       totalSeconds.value = historicalData.length;
       
-      console.log(`📊 生成 ${historicalData.length} 条仿真雷达数据`);
+      console.log(`📊 Generated ${historicalData.length} simulated radar data records`);
       
       if (historicalData.length > 0) {
-        console.log('📌 第一帧示例:', historicalData[0]);
+        console.log('📌 First frame example:', historicalData[0]);
       }
     }
     
@@ -737,7 +737,7 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
     // 初始化显示
     currentTimeDisplay.value = formatSecondsToTime(historicalData[0].timestamp);
     
-    console.log('✅ 开始播放历史数据...');
+    console.log('✅ Starting to play historical data...');
     
     // 等待200ms确保姿态图标预加载完成
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -753,7 +753,7 @@ const startPlayback = async (source: 'backend' | 'file' | 'demo') => {
       
       if (currentIndex >= historicalData.length) {
         // 播放完成
-        console.log('✅ 播放完成');
+        console.log('✅ Playback completed');
         handleStop();
         return;
       }
@@ -829,13 +829,13 @@ const parseRealData = (content: string): any[] => {
   const lines = content.trim().split('\n');
   const data: any[] = [];
   
-  console.log(`📂 解析文件，共 ${lines.length} 行`);
+  console.log(`📂 Parsing file, total ${lines.length} lines`);
   
   // 检测格式：CSV或表格
   const firstDataLine = lines.find(l => l.trim() && !l.trim().startsWith('+'));
   const isCSV = firstDataLine && !firstDataLine.includes('|');
   
-  console.log(`📋 检测到格式: ${isCSV ? 'CSV' : '表格'}`);
+  console.log(`📋 Detected format: ${isCSV ? 'CSV' : 'Table'}`);
   
   if (isCSV) {
     // CSV格式解析
@@ -848,7 +848,7 @@ const parseRealData = (content: string): any[] => {
       // 第一行是表头
       if (i === 0 || headers.length === 0) {
         headers = line.split(',').map(h => h.trim().replace(/"/g, ''));
-        console.log('📋 CSV表头:', headers);
+        console.log('📋 CSV headers:', headers);
         continue;
       }
       
@@ -857,7 +857,7 @@ const parseRealData = (content: string): any[] => {
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
         
         if (values.length < headers.length) {
-          console.warn('列数不足，跳过:', line);
+          console.warn('Insufficient columns, skipping:', line);
           continue;
         }
         
@@ -891,7 +891,7 @@ const parseRealData = (content: string): any[] => {
         
         data.push(record);
       } catch (e) {
-        console.warn('CSV解析失败:', line, e);
+        console.warn('CSV parsing failed:', line, e);
       }
     }
   } else {
@@ -912,7 +912,7 @@ const parseRealData = (content: string): any[] => {
         const cols = trimmed.split('|').map(c => c.trim()).filter(c => c);
         
         if (cols.length < 12) {
-          console.warn('列数不足，跳过:', trimmed);
+          console.warn('Insufficient columns, skipping:', trimmed);
           continue;
         }
         
@@ -944,12 +944,12 @@ const parseRealData = (content: string): any[] => {
         
         data.push(record);
       } catch (e) {
-        console.warn('解析失败:', line, e);
+        console.warn('Parsing failed:', line, e);
       }
     }
   }
   
-  console.log(`✅ 成功解析 ${data.length} 条记录`);
+  console.log(`✅ Successfully parsed ${data.length} records`);
   return data;
 };
 

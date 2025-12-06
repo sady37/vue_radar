@@ -58,14 +58,14 @@ export async function saveLayoutToServer(
     const result: ApiResponse = await response.json();
     
     if (result.success) {
-      console.log(`💾 Layout已保存到服务器: ${canvasId}, version=${result.data?.version}`);
+      console.log(`💾 Layout saved to server: ${canvasId}, version=${result.data?.version}`);
     } else {
-      console.error('❌ 保存失败:', result.message);
+      console.error('❌ Save failed:', result.message);
     }
     
     return result;
   } catch (error) {
-    console.error('❌ 保存到服务器失败:', error);
+    console.error('❌ Failed to save to server:', error);
     return {
       success: false,
       message: '网络错误，无法连接到服务器',
@@ -111,12 +111,12 @@ export async function loadLayoutFromServer(canvasId: string): Promise<ApiRespons
     const result = await response.json();
     
     if (result.success) {
-      console.log(`📥 从服务器加载 Layout: ${canvasId}, version=${result.data?.version}`);
+      console.log(`📥 Layout loaded from server: ${canvasId}, version=${result.data?.version}`);
     }
     
     return result;
   } catch (error) {
-    console.error('❌ 从服务器加载失败:', error);
+    console.error('❌ Failed to load from server:', error);
     return {
       success: false,
       message: '网络错误，无法连接到服务器',
@@ -146,7 +146,7 @@ export async function deleteLayoutFromServer(canvasId: string): Promise<ApiRespo
 
     return await response.json();
   } catch (error) {
-    console.error('❌ 删除失败:', error);
+    console.error('❌ Delete failed:', error);
     return {
       success: false,
       message: '删除失败',
@@ -176,7 +176,7 @@ export async function getLayoutHistory(canvasId: string): Promise<ApiResponse> {
 
     return await response.json();
   } catch (error) {
-    console.error('❌ 获取历史失败:', error);
+    console.error('❌ Failed to get history:', error);
     return {
       success: false,
       message: '获取历史失败',

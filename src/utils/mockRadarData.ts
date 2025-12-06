@@ -87,7 +87,7 @@
 	  
 	  const radar = objects.find(obj => obj.typeName === 'Radar');
 	  if (!radar) {
-		console.warn('未找到雷达对象，无法转换坐标');
+		console.warn('Radar object not found, cannot convert coordinates');
 		this.radarObjects = objects;
 		return;
 	  }
@@ -546,26 +546,26 @@ private behaviorSystem = {
 
   // 获取历史数据（用于回放）- 生成仿真数据（2分钟演示场景）
   getHistoricalData(durationSeconds: number = 120): any[] {
-    console.log(`🎲 生成 ${durationSeconds} 秒的仿真历史数据...`);
-    console.log(`📦 雷达对象数量: ${this.radarObjects.length}`);
+    console.log(`🎲 Generating ${durationSeconds} seconds of simulated historical data...`);
+    console.log(`📦 Radar object count: ${this.radarObjects.length}`);
     
-    console.log('🔍 查找雷达和床对象...');
-    console.log('   可用对象:', this.radarObjects.map(o => `${o.typeName}(${o.id})`));
+    console.log('🔍 Searching for radar and bed objects...');
+    console.log('   Available objects:', this.radarObjects.map(o => `${o.typeName}(${o.id})`));
     
     const radar = this.radarObjects.find(obj => obj.typeName === 'Radar');
     if (!radar) {
-      console.error('❌ 未找到雷达对象，无法生成仿真数据');
-      console.log('   提示：Demo模式会自动创建标准布局');
+      console.error('❌ Radar object not found, cannot generate simulated data');
+      console.log('   Tip: Demo mode will automatically create standard layout');
       return [];
     }
     
     const bed = this.radarObjects.find(obj => obj.typeName === 'Bed');
     const hasBed = !!bed;
     
-    console.log(`✅ 使用雷达: ${radar.name || radar.id}`, radar);
+    console.log(`✅ Using radar: ${radar.name || radar.id}`, radar);
     if (hasBed && bed) {
-      console.log(`✅ 使用床: ${bed.name || bed.id}`, bed);
-      console.log(`   床对象结构检查:`, {
+      console.log(`✅ Using bed: ${bed.name || bed.id}`, bed);
+      console.log(`   Bed object structure check:`, {
         hasDevice: !!bed.device,
         deviceCategory: bed.device?.category,
         hasGeometry: !!bed.geometry,
@@ -631,7 +631,7 @@ private behaviorSystem = {
       return items[0].value;
     };
     
-    console.log('📋 演示场景：0-60秒床上（12个周期），60-120秒床下（12个周期）');
+    console.log('📋 Demo scenario: 0-60s on bed (12 cycles), 60-120s off bed (12 cycles)');
     
     // 状态跟踪（使用雷达坐标系）
     let currentRadarPos: RadarPoint | null = null;
@@ -691,7 +691,7 @@ private behaviorSystem = {
         // 床上：雷达坐标固定
         if (i === 0 || !currentRadarPos) {
           currentRadarPos = getBedRadarPosition();
-          console.log(`  🛏️  床上雷达坐标: (H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)})`);
+          console.log(`  🛏️  On-bed radar coordinates: (H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)})`);
         }
         
         // 根据时间确定当前周期
@@ -709,7 +709,7 @@ private behaviorSystem = {
                 breathing: Math.floor(Math.random() * (14 - 10) + 10),
                 sleepState: 128  // 深睡眠
               };
-              console.log(`  🛏️  第 ${i} 秒: Deep Sleep (5秒)`);
+              console.log(`  🛏️  Second ${i}: Deep Sleep (5s)`);
               break;
               
             case 'light':
@@ -720,7 +720,7 @@ private behaviorSystem = {
                 breathing: Math.floor(Math.random() * (16 - 12) + 12),
                 sleepState: 64  // 浅睡眠
               };
-              console.log(`  🛏️  第 ${i} 秒: Light Sleep (5秒)`);
+              console.log(`  🛏️  Second ${i}: Light Sleep (5s)`);
               break;
               
             case 'awake':
@@ -731,7 +731,7 @@ private behaviorSystem = {
                 breathing: Math.floor(Math.random() * (18 - 14) + 14),
                 sleepState: 192  // 清醒（192 >> 6 = 3）
               };
-              console.log(`  🛏️  第 ${i} 秒: Awake (5秒)`);
+              console.log(`  🛏️  Second ${i}: Awake (5s)`);
               break;
               
             case 'situp':
@@ -742,7 +742,7 @@ private behaviorSystem = {
                 breathing: undefined,  // 坐起时无呼吸
                 sleepState: 192  // 清醒状态
               };
-              console.log(`  🛏️  第 ${i} 秒: SitUpBed (灰色) (5秒)`);
+              console.log(`  🛏️  Second ${i}: SitUpBed (gray) (5s)`);
               break;
               
             case 'situpConfirm':
@@ -753,7 +753,7 @@ private behaviorSystem = {
                 breathing: undefined,  // 坐起时无呼吸
                 sleepState: 192  // 清醒状态
               };
-              console.log(`  🛏️  第 ${i} 秒: SitUpBedConfirm (红色) (5秒)`);
+              console.log(`  🛏️  Second ${i}: SitUpBedConfirm (red) (5s)`);
               break;
               
             case 'L2':
@@ -764,7 +764,7 @@ private behaviorSystem = {
                 breathing: Math.floor(Math.random() * (12 - 9) + 9),
                 sleepState: 128  // L2 = 深睡眠
               };
-              console.log(`  🛏️  第 ${i} 秒: L2 (5秒)`);
+              console.log(`  🛏️  Second ${i}: L2 (5s)`);
               break;
               
             case 'L1':
@@ -775,7 +775,7 @@ private behaviorSystem = {
                 breathing: Math.floor(Math.random() * (15 - 12) + 12),
                 sleepState: 64  // L1 = 浅睡眠
               };
-              console.log(`  🛏️  第 ${i} 秒: L1 (5秒)`);
+              console.log(`  🛏️  Second ${i}: L1 (5s)`);
               break;
           }
         }
@@ -811,12 +811,12 @@ private behaviorSystem = {
             };
           }
           
-          console.log(`  🚶 第 ${i} 秒 [床下]: 姿态=${currentPosture}, 雷达坐标=(H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)}) (5秒)`);
+          console.log(`  🚶 Second ${i} [off-bed]: posture=${currentPosture}, radar coordinates=(H=${currentRadarPos.h.toFixed(1)}, V=${currentRadarPos.v.toFixed(1)}) (5s)`);
         }
       }
       
       if (!currentRadarPos || currentPosture === null) {
-        console.error(`❌ 第 ${i} 秒状态异常`);
+        console.error(`❌ Second ${i} state abnormal`);
         continue;
       }
       
@@ -843,9 +843,9 @@ private behaviorSystem = {
       });
     }
     
-    console.log(`✅ 生成了 ${historicalData.length} 条仿真历史记录`);
-    console.log(`   - 0-59秒（60秒）：床上场景，12个周期`);
-    console.log(`   - 60-119秒（60秒）：床下场景，12个周期`);
+    console.log(`✅ Generated ${historicalData.length} simulated historical records`);
+    console.log(`   - 0-59s (60s): On-bed scenario, 12 cycles`);
+    console.log(`   - 60-119s (60s): Off-bed scenario, 12 cycles`);
     return historicalData;
   }
 }

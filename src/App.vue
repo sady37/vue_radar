@@ -1,13 +1,13 @@
 <template>
   <div class="app-container">
     <div class="radar-system">
-      <!-- 左侧：雷达画布 -->
+      <!-- Left: Radar Canvas -->
       <RadarCanvas />
 
-      <!-- 第一个分隔器 -->
+      <!-- First separator -->
       <div class="spacer spacer-toggle" @click="toggleWaveform"></div>
 
-      <!-- 中间：示波器 -->
+      <!-- Middle: Waveform Monitor -->
       <div 
         class="waveform-wrapper" 
         :class="{ 'waveform-closed': !isWaveformOpen }"
@@ -15,10 +15,10 @@
         <WaveMonitor />
       </div>
 
-      <!-- 第二个分隔器 -->
+      <!-- Second separator -->
       <div class="spacer spacer-toggle" @click="toggleToolbar"></div>
 
-      <!-- 右侧：工具栏 -->
+      <!-- Right: Toolbar -->
       <div 
         class="toolbar-wrapper" 
         :class="{ 'toolbar-closed': !isToolbarOpen }"
@@ -47,7 +47,7 @@ const radarDataStore = useRadarDataStore();
 // 暴露 canvasStore 供其他地方访问
 (window as any).__canvasStore = canvasStore;
 
-const isWaveformOpen = ref(true);
+const isWaveformOpen = ref(false);
 const isToolbarOpen = ref(true);
 
 const toggleWaveform = () => {
@@ -74,32 +74,32 @@ onMounted(async () => {
   const dataUrl = urlParams.get('dataUrl');
   
   if (playbackMode === 'playback' && dataUrl) {
-    console.log('🎬 回放模式：从服务器加载 data + layout');
+    console.log('🎬 Playback mode: Loading data + layout from server');
     try {
       const response = await fetch(dataUrl);
       const result = await response.json();
       
       // 应用布局
-      canvasStore.setLayout(result.layout);
+      objectsStore.setLayout(result.layout);
       
       // 加载数据
       radarDataStore.setMode('fromserver');
       radarDataStore.loadHistoricalData(result.data);
       
-      console.log('✅ 回放数据加载成功', {
+      console.log('✅ Playback data loaded successfully', {
         radarId: result.radarId,
         dataLength: result.data?.length
       });
       return;
     } catch (error) {
-      console.error('❌ 回放数据加载失败:', error);
+      console.error('❌ Failed to load playback data:', error);
     }
   }
   
   // 1. 检查是否是URL查询模式（手动查询）
   const isAutoQuery = await autoQueryFromURL();
   if (isAutoQuery) {
-    console.log('🎬 URL自动查询模式已启动');
+    console.log('🎬 URL auto-query mode started');
     return;
   }
   
@@ -125,12 +125,12 @@ onMounted(async () => {
         if (device) {
           objectsStore.selectObject(device.id);
           const deviceInfo = params.devices.find(d => d.deviceId === params.currentDeviceId);
-          console.log(`✅ 自动选中设备: ${deviceInfo?.deviceName || params.currentDeviceId}`);
+          console.log(`✅ Auto-selected device: ${deviceInfo?.deviceName || params.currentDeviceId}`);
         }
       }
     }
   } else {
-    console.warn('⚠️ 未提供URL参数，使用默认空Canvas');
+    console.warn('⚠️ No URL parameters provided, using default empty Canvas');
   }
 });
 </script>
@@ -153,7 +153,7 @@ onMounted(async () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 分隔器 3x650 */
+/* Separator 3x650 */
 .spacer {
   width: 3px;
   height: 650px;
@@ -171,7 +171,7 @@ onMounted(async () => {
   background-color: #d0d0d0;
 }
 
-/* 波形监测容器 */
+/* Waveform monitor container */
 .waveform-wrapper {
   width: 620px;
   height: 650px;
@@ -183,7 +183,7 @@ onMounted(async () => {
   width: 0;
 }
 
-/* 工具栏容器 */
+/* Toolbar container */
 .toolbar-wrapper {
   width: 240px;
   height: 650px;

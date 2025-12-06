@@ -49,16 +49,16 @@
       </div>
       <div class="tool-row-line-color">
         <div class="color-group">
-          <button class="color-btn bed" :class="{ active: activeColor === colorMap.bed, disabled: !activeFurniture }" @click="selectColor('bed')" :disabled="!activeFurniture" title="Bed色"></button>
-          <button class="color-btn monitorBed" :class="{ active: activeColor === colorMap.monitorBed, disabled: !activeFurniture }" @click="selectColor('monitorBed')" :disabled="!activeFurniture" title="MonitorBed色"></button>
-          <button class="color-btn blue" :class="{ active: activeColor === colorMap.blue, disabled: !activeFurniture }" @click="selectColor('blue')" :disabled="!activeFurniture" title="蓝色(Curtain)"></button>
-          <button class="color-btn gray" :class="{ active: activeColor === colorMap.gray, disabled: !activeFurniture }" @click="selectColor('gray')" :disabled="!activeFurniture" title="灰色(Furniture)"></button>
-          <button class="color-btn brown" :class="{ active: activeColor === colorMap.brown, disabled: !activeFurniture }" @click="selectColor('brown')" :disabled="!activeFurniture" title="棕色(Table)"></button>
-          <button class="color-btn chair" :class="{ active: activeColor === colorMap.chair, disabled: !activeFurniture }" @click="selectColor('chair')" :disabled="!activeFurniture" title="赭色(Chair)"></button>
-          <button class="color-btn silver" :class="{ active: activeColor === colorMap.silver, disabled: !activeFurniture }" @click="selectColor('silver')" :disabled="!activeFurniture" title="灰绿色"></button>
-          <button class="color-btn black" :class="{ active: activeColor === colorMap.black, disabled: !activeFurniture }" @click="selectColor('black')" :disabled="!activeFurniture" title="黑色(Wall)"></button>
-          <button class="color-btn yellow" :class="{ active: activeColor === colorMap.yellow, disabled: !activeFurniture }" @click="selectColor('yellow')" :disabled="!activeFurniture" title="黄色"></button>
-          <button class="color-btn interfere" :class="{ active: activeColor === colorMap.interfere, disabled: !activeFurniture }" @click="selectColor('interfere')" :disabled="!activeFurniture" title="浅白色(Interfere)"></button>
+          <button class="color-btn bed" :class="{ active: activeColor === colorMap.bed, disabled: !activeFurniture }" @click="selectColor('bed')" :disabled="!activeFurniture" title="Bed color"></button>
+          <button class="color-btn monitorBed" :class="{ active: activeColor === colorMap.monitorBed, disabled: !activeFurniture }" @click="selectColor('monitorBed')" :disabled="!activeFurniture" title="MonitorBed color"></button>
+          <button class="color-btn blue" :class="{ active: activeColor === colorMap.blue, disabled: !activeFurniture }" @click="selectColor('blue')" :disabled="!activeFurniture" title="Blue (Curtain)"></button>
+          <button class="color-btn gray" :class="{ active: activeColor === colorMap.gray, disabled: !activeFurniture }" @click="selectColor('gray')" :disabled="!activeFurniture" title="Gray (Furniture)"></button>
+          <button class="color-btn brown" :class="{ active: activeColor === colorMap.brown, disabled: !activeFurniture }" @click="selectColor('brown')" :disabled="!activeFurniture" title="Brown (Table)"></button>
+          <button class="color-btn chair" :class="{ active: activeColor === colorMap.chair, disabled: !activeFurniture }" @click="selectColor('chair')" :disabled="!activeFurniture" title="Ochre (Chair)"></button>
+          <button class="color-btn silver" :class="{ active: activeColor === colorMap.silver, disabled: !activeFurniture }" @click="selectColor('silver')" :disabled="!activeFurniture" title="Gray-green"></button>
+          <button class="color-btn black" :class="{ active: activeColor === colorMap.black, disabled: !activeFurniture }" @click="selectColor('black')" :disabled="!activeFurniture" title="Black (Wall)"></button>
+          <button class="color-btn yellow" :class="{ active: activeColor === colorMap.yellow, disabled: !activeFurniture }" @click="selectColor('yellow')" :disabled="!activeFurniture" title="Yellow"></button>
+          <button class="color-btn interfere" :class="{ active: activeColor === colorMap.interfere, disabled: !activeFurniture }" @click="selectColor('interfere')" :disabled="!activeFurniture" title="Light white (Interfere)"></button>
         </div>
       </div>
     </div>

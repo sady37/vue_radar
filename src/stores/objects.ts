@@ -103,7 +103,7 @@ export const useObjectsStore = defineStore('objects', {
       // 自动选中新添加的对象
       this.selectedId = obj.id;
       
-      console.log(`✅ 添加对象: ${obj.typeName} (${obj.id})`);
+      console.log(`✅ Added object: ${obj.typeName} (${obj.id})`);
       
       // 如果是雷达或家具，更新区域
       if (obj.typeName === 'Radar' || obj.device.category === 'furniture') {
@@ -128,7 +128,7 @@ export const useObjectsStore = defineStore('objects', {
           this.selectedId = null;
         }
         
-        console.log(`🗑️ 删除对象: ${obj.typeName} (${id})`);
+        console.log(`🗑️ Deleted object: ${obj.typeName} (${id})`);
         
         // 如果删除的是雷达或家具，更新区域
         if (isRadar || isFurniture) {
@@ -166,7 +166,7 @@ export const useObjectsStore = defineStore('objects', {
         console.log(`  shouldUpdate = ${shouldUpdate}`);
         
         if (shouldUpdate) {
-          console.log('🔄 触发区域更新');
+          console.log('🔄 Triggered area update');
           this.updateAllRadarAreas();
         }
       }
@@ -227,7 +227,7 @@ export const useObjectsStore = defineStore('objects', {
     clearAll() {
       this.objects = [];
       this.selectedId = null;
-      console.log('🧹 清空所有对象');
+      console.log('🧹 Cleared all objects');
     },
     
     /**
@@ -268,12 +268,12 @@ export const useObjectsStore = defineStore('objects', {
      */
     updateAllRadarAreas() {
       const radars = this.radars;
-      console.log(`\n🔄 更新所有雷达区域 (共${radars.length}个雷达)`);
+      console.log(`\n🔄 Updating all radar areas (${radars.length} radars total)`);
       
       // 为每个雷达计算区域
       radars.forEach(radar => {
         const areas = updateRadarAreas(radar, this.objects);
-        console.log(`  📡 ${radar.name}: ${areas.length}个区域`);
+        console.log(`  📡 ${radar.name}: ${areas.length} areas`);
         if (radar.device.iot?.radar) {
           radar.device.iot.radar.areas = areas;
         }
@@ -399,10 +399,10 @@ export const useObjectsStore = defineStore('objects', {
       
       try {
         localStorage.setItem(canvasKey, JSON.stringify(canvasData));
-        console.log(`💾 Canvas已保存: ${canvasKey}, ${this.objects.length}个对象`);
+        console.log(`💾 Canvas saved: ${canvasKey}, ${this.objects.length} objects`);
         return true;
       } catch (error) {
-        console.error('❌ 保存Canvas失败:', error);
+        console.error('❌ Failed to save Canvas:', error);
         return false;
       }
     },
@@ -414,7 +414,7 @@ export const useObjectsStore = defineStore('objects', {
       try {
         const data = localStorage.getItem(canvasKey);
         if (!data) {
-          console.log(`📭 Canvas不存在: ${canvasKey}，使用空布局`);
+          console.log(`📭 Canvas does not exist: ${canvasKey}, using empty layout`);
           this.objects = [];
           this.selectedId = null;
           return false;
@@ -445,6 +445,19 @@ export const useObjectsStore = defineStore('objects', {
       this.objects = [];
       this.selectedId = null;
       console.log('🗑️ Canvas已清空');
+    },
+    
+    /**
+     * 直接设置布局（从服务器加载的布局数据）
+     */
+    setLayout(layout: { objects?: any[] }) {
+      if (layout.objects) {
+        this.objects = layout.objects;
+        this.selectedId = null;
+        // 加载后更新所有雷达区域
+        this.updateAllRadarAreas();
+        console.log(`📂 Layout loaded: ${this.objects.length} objects`);
+      }
     },
     
     /**

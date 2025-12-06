@@ -8,7 +8,7 @@
       @mouseleave="handleMouseLeave"
     ></canvas>
     
-    <!-- 实时模式：右上角显示当前值 -->
+    <!-- Realtime mode: Display current values in top-right corner -->
     <div v-if="mode === 'realtime' && currentValues" class="realtime-values">
       <div class="value-item hr">
         <span class="label">HR:</span>
@@ -22,7 +22,7 @@
       </div>
     </div>
     
-    <!-- 历史模式：鼠标悬停显示 -->
+    <!-- History mode: Display on mouse hover -->
     <div v-if="mode === 'history' && hoverInfo" class="hover-info" :style="{ left: hoverInfo.x + 'px', top: hoverInfo.y + 'px' }">
       <div>{{ hoverInfo.time }}</div>
       <div>HR: {{ hoverInfo.hr }} bpm</div>
@@ -30,7 +30,7 @@
       <div v-if="hoverInfo.sleepState">Sleep: {{ hoverInfo.sleepState }}</div>
     </div>
     
-    <!-- 历史模式：时间滑轨 -->
+    <!-- History mode: Time slider -->
     <div v-if="mode === 'history' && totalDuration > 0" class="time-slider">
       <input 
         type="range" 
@@ -194,7 +194,7 @@ const drawWaveform = () => {
   
   // 调试信息
   if (props.mode === 'realtime' && props.data.length > 0) {
-    console.log(`🎨 绘制波形: 数据点=${props.data.length}, 最新时间=${props.data[props.data.length - 1].timestamp.toFixed(1)}s`);
+    console.log(`🎨 Drawing waveform: data points=${props.data.length}, latest time=${props.data[props.data.length - 1].timestamp.toFixed(1)}s`);
   }
   
   // 绘制背景（根据darkBackground属性）
@@ -319,15 +319,6 @@ const drawWaveform = () => {
     // 标签
     ctx.fillText(String(tick), padding.left - 10, y);
   });
-  
-  // 在Y=0位置画一条分隔线
-  const y0Line = valueToY(0);
-  ctx.strokeStyle = gridColor;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padding.left, y0Line);
-  ctx.lineTo(canvasWidth.value - padding.right, y0Line);
-  ctx.stroke();
   
   // 绘制报警线（横虚线）
   const drawAlarmLine = (value: number, color: string, label: string) => {
