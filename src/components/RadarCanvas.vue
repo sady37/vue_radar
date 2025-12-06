@@ -97,7 +97,7 @@ const objectsStore = useObjectsStore();
 const scale = ref(1.0);
 const mouseX = ref(0);
 const mouseY = ref(0);
-const showVital = ref(true);  // 默认开启
+const showVital = ref(false);  // 默认关闭
 
 // 格式化坐标，固定宽度显示
 const formatCoord = (value: number): string => {
